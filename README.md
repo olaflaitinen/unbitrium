@@ -17,26 +17,41 @@
 
 <!-- Badges: exactly 20 -->
 <p align="center">
+  <!-- Project Status (10) -->
   <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/v/unbitrium?label=PyPI&color=blue" alt="PyPI Version" /></a>
   <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/dm/unbitrium?label=Downloads&color=green" alt="PyPI Downloads" /></a>
   <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/pyversions/unbitrium?label=Python" alt="Python Versions" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-EUPL%201.2-blue" alt="License" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/ci.yml?label=CI" alt="CI Status" /></a>
   <a href="https://codecov.io/gh/olaflaitinen/unbitrium"><img src="https://img.shields.io/codecov/c/github/olaflaitinen/unbitrium?label=Coverage" alt="Coverage" /></a>
   <a href="https://olaflaitinen.github.io/unbitrium/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue" alt="Documentation" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/lint.yml?label=Lint" alt="Lint Status" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/typecheck.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/typecheck.yml?label=Type%20Check" alt="Type Check" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/release.yml?label=Release" alt="Release Status" /></a>
-  <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?label=OpenSSF%20Scorecard" alt="OpenSSF Scorecard" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/security/code-scanning"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/codeql.yml?label=CodeQL" alt="CodeQL" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen" alt="Dependabot" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/benchmark.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/benchmark.yml?label=Benchmark" alt="Benchmark" /></a>
   <a href="CITATION.cff"><img src="https://img.shields.io/badge/Citation-CFF-orange" alt="Citation" /></a>
-  <a href="https://zenodo.org/badge/latestdoi/placeholder"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.placeholder-blue" alt="DOI" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/wheels.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/wheels.yml?label=Wheels" alt="Platform Wheels" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/pkgs/container/unbitrium"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/container.yml?label=Container" alt="Container Build" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium/commits/main"><img src="https://img.shields.io/github/last-commit/olaflaitinen/unbitrium?label=Last%20Commit" alt="Last Commit" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/stars/olaflaitinen/unbitrium?label=Stars" alt="GitHub Stars" /></a>
+
+  <br/>
+
+  <!-- Tech Stack & Info (20) -->
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?logo=PyTorch&logoColor=white" alt="PyTorch" /></a>
+  <a href="https://numpy.org/"><img src="https://img.shields.io/badge/numpy-%23013243.svg?logo=numpy&logoColor=white" alt="NumPy" /></a>
+  <a href="https://scipy.org/"><img src="https://img.shields.io/badge/SciPy-%230C55A5.svg?logo=scipy&logoColor=white" alt="SciPy" /></a>
+  <a href="https://pandas.pydata.org/"><img src="https://img.shields.io/badge/pandas-%23150458.svg?logo=pandas&logoColor=white" alt="Pandas" /></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://www.linux.org/"><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" alt="Linux" /></a>
+  <a href="https://www.microsoft.com/windows/"><img src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white" alt="Windows" /></a>
+  <a href="https://git-scm.com/"><img src="https://img.shields.io/badge/git-%23F05033.svg?logo=git&logoColor=white" alt="Git" /></a>
+  <a href="https://github.com/"><img src="https://img.shields.io/badge/github-%23121011.svg?logo=github&logoColor=white" alt="GitHub" /></a>
+  <a href="https://code.visualstudio.com/"><img src="https://img.shields.io/badge/Visual%20Studio%20Code-0078d7.svg?logo=visual-studio-code&logoColor=white" alt="VS Code" /></a>
+  <a href="https://www.markdownguide.org/"><img src="https://img.shields.io/badge/markdown-%23000000.svg?logo=markdown&logoColor=white" alt="Markdown" /></a>
+  <a href="https://www.gnu.org/software/bash/"><img src="https://img.shields.io/badge/gnu%20bash-%234EAA25.svg?logo=gnu-bash&logoColor=white" alt="Bash" /></a>
+  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code Style: Black" /></a>
+  <a href="https://pycqa.github.io/isort/"><img src="https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336" alt="Imports: isort" /></a>
+  <a href="https://pre-commit.com/"><img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit" alt="pre-commit" /></a>
+  <a href="https://semver.org/"><img src="https://img.shields.io/badge/semver-2.0.0-blue" alt="Semantic Versioning" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Maintained%3F-yes-green.svg" alt="Maintained" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Open%20Source-Love-png?color=red" alt="Open Source" /></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen" alt="Contributions Welcome" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/repo-size/olaflaitinen/unbitrium" alt="Repo Size" /></a>
 </p>
 
 ---
