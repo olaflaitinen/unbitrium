@@ -1,8 +1,8 @@
 # Unbitrium
 
-<!-- Logo placeholder: 200x40 SVG -->
+<!-- Logo placeholder: 400x80 SVG -->
 <p align="center">
-  <img src="assets/logo.svg" alt="Unbitrium Logo" width="200" height="40" />
+  <img src="assets/logo.svg" alt="Unbitrium Logo" width="400" height="80" />
 </p>
 
 <p align="center">
