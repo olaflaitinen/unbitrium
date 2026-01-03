@@ -27,9 +27,9 @@
   <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen" alt="Dependabot" /></a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?label=OSSF" alt="Scorecard" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/repo-size/olaflaitinen/unbitrium?label=Size" alt="Repo Size" /></a>
+</p>
 
-  <br/>
-
+<p align="center">
   <!-- OS & Platform -->
   <a href="#"><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" alt="Linux" /></a>
   <a href="#"><img src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white" alt="Windows" /></a>
@@ -41,9 +41,9 @@
   <a href="https://matplotlib.org/"><img src="https://img.shields.io/badge/Matplotlib-%23ffffff.svg?logo=matplotlib&logoColor=black" alt="Matplotlib" /></a>
   <a href="https://scikit-learn.org/"><img src="https://img.shields.io/badge/scikit--learn-%23F7931E.svg?logo=scikit-learn&logoColor=white" alt="Scikit-Learn" /></a>
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-%230db7ed.svg?logo=docker&logoColor=white" alt="Docker" /></a>
+</p>
 
-  <br/>
-
+<p align="center">
   <!-- Tools & Quality -->
   <a href="https://git-scm.com/"><img src="https://img.shields.io/badge/Git-%23F05033.svg?logo=git&logoColor=white" alt="Git" /></a>
   <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/Code%20Style-Black-000000.svg" alt="Black" /></a>
