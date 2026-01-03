@@ -17,26 +17,26 @@
 
 <!-- Badges: exactly 20 -->
 <p align="center">
-  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/v/unbitrium?style=flat-square&label=PyPI&color=blue" alt="PyPI Version" /></a>
-  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/dm/unbitrium?style=flat-square&label=Downloads&color=green" alt="PyPI Downloads" /></a>
-  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/pyversions/unbitrium?style=flat-square&label=Python" alt="Python Versions" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-EUPL%201.2-blue?style=flat-square" alt="License" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/ci.yml?style=flat-square&label=CI" alt="CI Status" /></a>
-  <a href="https://codecov.io/gh/olaflaitinen/unbitrium"><img src="https://img.shields.io/codecov/c/github/olaflaitinen/unbitrium?style=flat-square&label=Coverage" alt="Coverage" /></a>
-  <a href="https://olaflaitinen.github.io/unbitrium/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue?style=flat-square" alt="Documentation" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/lint.yml?style=flat-square&label=Lint" alt="Lint Status" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/typecheck.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/typecheck.yml?style=flat-square&label=Type%20Check" alt="Type Check" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/release.yml?style=flat-square&label=Release" alt="Release Status" /></a>
-  <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?style=flat-square&label=OpenSSF%20Scorecard" alt="OpenSSF Scorecard" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/security/code-scanning"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/codeql.yml?style=flat-square&label=CodeQL" alt="CodeQL" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen?style=flat-square" alt="Dependabot" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/benchmark.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/benchmark.yml?style=flat-square&label=Benchmark" alt="Benchmark" /></a>
-  <a href="CITATION.cff"><img src="https://img.shields.io/badge/Citation-CFF-orange?style=flat-square" alt="Citation" /></a>
-  <a href="https://zenodo.org/badge/latestdoi/placeholder"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.placeholder-blue?style=flat-square" alt="DOI" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/wheels.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/wheels.yml?style=flat-square&label=Wheels" alt="Platform Wheels" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/pkgs/container/unbitrium"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/container.yml?style=flat-square&label=Container" alt="Container Build" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium/commits/main"><img src="https://img.shields.io/github/last-commit/olaflaitinen/unbitrium?style=flat-square&label=Last%20Commit" alt="Last Commit" /></a>
-  <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/stars/olaflaitinen/unbitrium?style=flat-square&label=Stars" alt="GitHub Stars" /></a>
+  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/v/unbitrium?label=PyPI&color=blue" alt="PyPI Version" /></a>
+  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/dm/unbitrium?label=Downloads&color=green" alt="PyPI Downloads" /></a>
+  <a href="https://pypi.org/project/unbitrium/"><img src="https://img.shields.io/pypi/pyversions/unbitrium?label=Python" alt="Python Versions" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-EUPL%201.2-blue" alt="License" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/ci.yml?label=CI" alt="CI Status" /></a>
+  <a href="https://codecov.io/gh/olaflaitinen/unbitrium"><img src="https://img.shields.io/codecov/c/github/olaflaitinen/unbitrium?label=Coverage" alt="Coverage" /></a>
+  <a href="https://olaflaitinen.github.io/unbitrium/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue" alt="Documentation" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/lint.yml?label=Lint" alt="Lint Status" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/typecheck.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/typecheck.yml?label=Type%20Check" alt="Type Check" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/release.yml?label=Release" alt="Release Status" /></a>
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?label=OpenSSF%20Scorecard" alt="OpenSSF Scorecard" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/security/code-scanning"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/codeql.yml?label=CodeQL" alt="CodeQL" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen" alt="Dependabot" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/benchmark.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/benchmark.yml?label=Benchmark" alt="Benchmark" /></a>
+  <a href="CITATION.cff"><img src="https://img.shields.io/badge/Citation-CFF-orange" alt="Citation" /></a>
+  <a href="https://zenodo.org/badge/latestdoi/placeholder"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.placeholder-blue" alt="DOI" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/actions/workflows/wheels.yml"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/wheels.yml?label=Wheels" alt="Platform Wheels" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/pkgs/container/unbitrium"><img src="https://img.shields.io/github/actions/workflow/status/olaflaitinen/unbitrium/container.yml?label=Container" alt="Container Build" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium/commits/main"><img src="https://img.shields.io/github/last-commit/olaflaitinen/unbitrium?label=Last%20Commit" alt="Last Commit" /></a>
+  <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/stars/olaflaitinen/unbitrium?label=Stars" alt="GitHub Stars" /></a>
 </p>
 
 ---
