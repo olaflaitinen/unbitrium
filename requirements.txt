@@ -1,0 +1,7 @@
+torch>=2.4.0
+numpy>=2.0.0
+scipy>=1.12.0
+matplotlib>=3.8.0
+pandas>=2.2.0
+pyyaml>=6.0
+opacus>=1.4.0

@@ -36,9 +36,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/unbitrium/unbitrium"
-"Bug Tracker" = "https://github.com/unbitrium/unbitrium/issues"
-"Documentation" = "https://unbitrium.readthedocs.io"
+"Homepage" = "https://github.com/olaflaitinen/unbitrium"
+"Bug Tracker" = "https://github.com/olaflaitinen/unbitrium/issues"
+"Documentation" = "https://olaflaitinen.github.io/unbitrium"
 
 [project.optional-dependencies]
 dev = [

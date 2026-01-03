@@ -3,7 +3,7 @@ message: "If you use this software, please cite it as below."
 title: "Unbitrium: A production-grade Federated Learning Simulator"
 version: 1.0.0
 date-released: 2026-01-03
-url: "https://github.com/unbitrium/unbitrium"
+url: "https://github.com/olaflaitinen/unbitrium"
 license: EUPL-1.2
 authors:
   - family-names: "Laitinen Imanov"
