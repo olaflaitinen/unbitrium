@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unbitrium"
+version = "1.0.0"
+description = "A production-grade Federated Learning Simulator for reproducible research."
+readme = "README.md"
+authors = [
+  { name = "Olaf Yunus Laitinen Imanov", email = "oyli@dtu.dk" }
+]
+license = { text = "EUPL-1.2" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+keywords = ["federated learning", "simulation", "privacy", "machine learning"]
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4.0",
+    "numpy>=2.0.0",
+    "scipy>=1.12.0",
+    "matplotlib>=3.8.0",
+    "pandas>=2.2.0",
+    "pyyaml>=6.0",
+    "opacus>=1.4.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/unbitrium/unbitrium"
+"Bug Tracker" = "https://github.com/unbitrium/unbitrium/issues"
+"Documentation" = "https://unbitrium.readthedocs.io"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py312', 'py313', 'py314']
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true

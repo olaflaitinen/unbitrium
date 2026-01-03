@@ -1,0 +1,22 @@
+# Include documentation
+include README.md
+include LICENSE
+include NOTICE
+include CHANGELOG.md
+include CITATION.cff
+include AUTHORS.md
+
+# Include type stubs
+recursive-include src *.pyi py.typed
+
+# Include data files
+recursive-include docs *.md *.yml *.yaml *.css
+
+# Exclude tests and dev files
+prune tests
+prune benchmarks
+exclude .pre-commit-config.yaml
+exclude .editorconfig
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

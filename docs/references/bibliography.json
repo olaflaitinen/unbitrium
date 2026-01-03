@@ -1,0 +1,92 @@
+[
+  {
+    "id": "mcmahan2017communication",
+    "type": "article-journal",
+    "title": "Communication-Efficient Learning of Deep Networks from Decentralized Data",
+    "author": [
+      {"family": "McMahan", "given": "H. Brendan"},
+      {"family": "Moore", "given": "Eider"},
+      {"family": "Ramage", "given": "Daniel"},
+      {"family": "Hampson", "given": "Seth"},
+      {"family": "Arcas", "given": "Blaise Aguera y"}
+    ],
+    "container-title": "AISTATS",
+    "issued": {"date-parts": [[2017]]},
+    "publisher": "PMLR"
+  },
+  {
+    "id": "li2020federated",
+    "type": "paper-conference",
+    "title": "Federated Optimization in Heterogeneous Networks",
+    "author": [
+      {"family": "Li", "given": "Tian"},
+      {"family": "Sahu", "given": "Anit Kumar"},
+      {"family": "Zaheer", "given": "Manzil"},
+      {"family": "Sanjabi", "given": "Maziar"},
+      {"family": "Talwalkar", "given": "Ameet"},
+      {"family": "Smith", "given": "Virginia"}
+    ],
+    "container-title": "MLSys",
+    "issued": {"date-parts": [[2020]]}
+  },
+  {
+    "id": "acar2021federated",
+    "type": "paper-conference",
+    "title": "Federated Learning Based on Dynamic Regularization",
+    "author": [
+      {"family": "Acar", "given": "Durmus Alp Emre"},
+      {"family": "Zhao", "given": "Yue"},
+      {"family": "Navarro", "given": "Ramon Matas"},
+      {"family": "Mattina", "given": "Matthew"},
+      {"family": "Whatmough", "given": "Paul N"},
+      {"family": "Sabar", "given": "Venkatesh"}
+    ],
+    "container-title": "ICLR",
+    "issued": {"date-parts": [[2021]]}
+  },
+  {
+    "id": "karimireddy2020scaffold",
+    "type": "article-journal",
+    "title": "SCAFFOLD: Stochastic Controlled Averaging for Federated Learning",
+    "author": [
+      {"family": "Karimireddy", "given": "Sai Praneeth"},
+      {"family": "Kale", "given": "Satyen"},
+      {"family": "Mohri", "given": "Mehryar"},
+      {"family": "Reddi", "given": "Sashank J"},
+      {"family": "Stich", "given": "Sebastian U"},
+      {"family": "Suresh", "given": "Ananda Theertha"}
+    ],
+    "container-title": "ICML",
+    "issued": {"date-parts": [[2020]]}
+  },
+  {
+    "id": "blanchard2017machine",
+    "type": "paper-conference",
+    "title": "Machine Learning with Adversaries: Byzantine Tolerant Gradient Descent",
+    "author": [
+      {"family": "Blanchard", "given": "Peva"},
+      {"family": "Mhamdi", "given": "El Mahdi El"},
+      {"family": "Guerraoui", "given": "Rachid"},
+      {"family": "Stainer", "given": "Julien"}
+    ],
+    "container-title": "NeurIPS",
+    "issued": {"date-parts": [[2017]]}
+  },
+  {
+    "id": "caldas2018leaf",
+    "type": "article-journal",
+    "title": "LEAF: A Benchmark for Federated Settings",
+    "author": [
+      {"family": "Caldas", "given": "Sebastian"},
+      {"family": "Duddu", "given": "Sai Meher Karthik"},
+      {"family": "Wu", "given": "Peter"},
+      {"family": "Li", "given": "Tian"},
+      {"family": "Konecny", "given": "Jakub"},
+      {"family": "McMahan", "given": "H. Brendan"},
+      {"family": "Smith", "given": "Virginia"},
+      {"family": "Talwalkar", "given": "Ameet"}
+    ],
+    "container-title": "arXiv",
+    "issued": {"date-parts": [[2018]]}
+  }
+]

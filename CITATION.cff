@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Unbitrium: A production-grade Federated Learning Simulator"
+version: 1.0.0
+date-released: 2026-01-03
+url: "https://github.com/unbitrium/unbitrium"
+license: EUPL-1.2
+authors:
+  - family-names: "Laitinen Imanov"
+    given-names: "Olaf Yunus"
+    orcid: "https://orcid.org/0009-0006-5184-0810"
+    email: "oyli@dtu.dk"
+    affiliation: "Technical University of Denmark (DTU), Department of Applied Mathematics and Computer Science (DTU Compute), Section for Visual Computing"
+abstract: "Unbitrium is an encyclopedic, production-grade Federated Learning simulator designed for reproducible research. It supports non-IID partitioning, advanced aggregation algorithms, heterogeneity metrics, and differential privacy mechanisms."
+keywords:
+  - "federated learning"
+  - "machine learning"
+  - "privacy"
+  - "simulation"
+  - "distributed systems"
