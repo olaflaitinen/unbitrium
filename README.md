@@ -54,7 +54,6 @@
   <a href="https://code.visualstudio.com/"><img src="https://img.shields.io/badge/Editor-VS%20Code-0078d7.svg?logo=visual-studio-code&logoColor=white" alt="VS Code" /></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen" alt="Contributions" /></a>
   <a href="CITATION.cff"><img src="https://img.shields.io/badge/Citation-CFF-orange" alt="Citation" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/Open%20Source-%E2%9D%A4-red" alt="Open Source" /></a>
 </p>
 
 ---
