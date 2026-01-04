@@ -1,49 +1,78 @@
+"""Distribution metrics for federated learning.
+
+Provides functions to measure data distribution properties.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
-Distributional metrics (EMD, JS, Entropy).
-"""
+
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
-from scipy.spatial.distance import jensenshannon
-from scipy.stats import entropy
-try:
-    import ot
-except ImportError:
-    ot = None
 
-def compute_emd(p: np.ndarray, q: np.ndarray) -> float:
-    """
-    Computes Earth Mover's Distance between two probability distributions.
 
-    Parameters
-    ----------
-    p : np.ndarray
-        First distribution (1D).
-    q : np.ndarray
-        Second distribution (1D).
+def compute_distribution_metrics(
+    labels: np.ndarray | Any,
+    client_indices: dict[int, list[int]],
+) -> dict[str, float]:
+    """Compute comprehensive distribution metrics.
 
-    Returns
-    -------
-    float
-        EMD value.
-    """
-    if ot is not None:
-        # Use simple 1D Wasserstein if applicable, or OT for generic
-        # For 1D histograms with assumed metric ground distance (e.g. class indices),
-        # we can use:
-        M = ot.dist(np.arange(len(p)).reshape(-1,1), np.arange(len(q)).reshape(-1,1))
-        return float(ot.emd2(p, q, M))
-    else:
-        # Simple L1 accumulation for 1D case as fallback
-        return float(np.sum(np.abs(np.cumsum(p) - np.cumsum(q))))
+    Args:
+        labels: Array of class labels.
+        client_indices: Mapping from client ID to sample indices.
 
-def compute_js_divergence(p: np.ndarray, q: np.ndarray) -> float:
+    Returns:
+        Dictionary of distribution metrics.
     """
-    Computes Jensen-Shannon Divergence.
-    """
-    return float(jensenshannon(p, q) ** 2)
+    if hasattr(labels, "numpy"):
+        labels = labels.numpy()
+    labels = np.asarray(labels)
 
-def compute_label_entropy(p: np.ndarray) -> float:
-    """
-    Computes Shannon entropy of the label distribution.
-    """
-    return float(entropy(p))
+    num_classes = len(np.unique(labels))
+    num_clients = len(client_indices)
+
+    # Per-client sizes
+    sizes = [len(indices) for indices in client_indices.values()]
+
+    # Global distribution
+    global_counts = np.bincount(labels, minlength=num_classes)
+    global_dist = global_counts / global_counts.sum()
+
+    # Client distributions
+    client_dists = []
+    for indices in client_indices.values():
+        if len(indices) > 0:
+            client_labels = labels[indices]
+            counts = np.bincount(client_labels, minlength=num_classes)
+            client_dists.append(counts / counts.sum())
+
+    # Coefficient of variation for sizes
+    size_cv = np.std(sizes) / np.mean(sizes) if np.mean(sizes) > 0 else 0.0
+
+    # Average L1 distance from global
+    l1_distances = [np.sum(np.abs(d - global_dist)) for d in client_dists]
+    avg_l1 = np.mean(l1_distances) if l1_distances else 0.0
+
+    # Gini coefficient for class balance
+    ginis = []
+    for dist in client_dists:
+        sorted_dist = np.sort(dist)
+        n = len(sorted_dist)
+        cumsum = np.cumsum(sorted_dist)
+        gini = (2 * np.sum((np.arange(1, n + 1) * sorted_dist)) / (n * cumsum[-1])) - (n + 1) / n
+        ginis.append(gini)
+    avg_gini = np.mean(ginis) if ginis else 0.0
+
+    return {
+        "num_clients": float(num_clients),
+        "num_classes": float(num_classes),
+        "total_samples": float(len(labels)),
+        "min_client_size": float(min(sizes)),
+        "max_client_size": float(max(sizes)),
+        "avg_client_size": float(np.mean(sizes)),
+        "size_cv": float(size_cv),
+        "avg_l1_distance": float(avg_l1),
+        "avg_gini": float(avg_gini),
+    }

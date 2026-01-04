@@ -1,0 +1,65 @@
+# MNIST Benchmark with FedSim
+# Unbitrium Standardized Benchmark Configuration
+
+experiment:
+  name: mnist_fedsim_heterogeneity
+  description: FedSim experiment on MNIST with high heterogeneity
+  version: 1.0.0
+
+dataset:
+  name: mnist
+  root: ./data
+  download: true
+  normalize: true
+
+partitioning:
+  strategy: dirichlet
+  alpha: 0.1  # High heterogeneity
+  seed: 42
+
+clients:
+  num_clients: 50
+  participation_rate: 0.2
+  selection_strategy: random
+
+training:
+  num_rounds: 50
+  local_epochs: 3
+  batch_size: 64
+  learning_rate: 0.01
+  optimizer: sgd
+  momentum: 0.0
+  weight_decay: 0.0
+
+model:
+  architecture: mlp
+  hidden_dims: [128, 64]
+  num_classes: 10
+
+aggregator:
+  name: fedsim
+  params:
+    similarity_threshold: 0.5
+    similarity_metric: cosine
+
+metrics:
+  - accuracy
+  - loss
+  - emd
+  - label_entropy
+  - cosine_disagreement
+
+logging:
+  level: INFO
+  save_checkpoints: true
+  checkpoint_interval: 5
+  tensorboard: true
+
+reproducibility:
+  seed: 42
+  deterministic: true
+
+output:
+  dir: ./results/mnist_fedsim
+  save_manifest: true
+  save_report: true

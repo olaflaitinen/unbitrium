@@ -1,55 +1,108 @@
+"""Network simulation for federated learning.
+
+Provides network topology and latency modeling.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
-Network Simulation.
-"""
 
-from dataclasses import dataclass
-import random
-from typing import Optional
+from __future__ import annotations
 
-@dataclass
-class NetworkConfig:
+from typing import Any
+
+import numpy as np
+
+
+class Network:
+    """Simulated network for federated learning.
+
+    Args:
+        num_clients: Number of clients.
+        bandwidth_range: (min, max) bandwidth in Mbps.
+        latency_range: (min, max) latency in ms.
+        drop_rate: Probability of message drop.
+        seed: Random seed.
+
+    Example:
+        >>> network = Network(num_clients=10)
+        >>> delay = network.get_transmission_time(client_id=0, size_bytes=1024)
     """
-    Configuration for network simulation.
-    """
-    bandwidth_upload: float = 10.0 # Mbps
-    bandwidth_download: float = 50.0 # Mbps
-    latency_mean: float = 0.050 # Seconds (50ms)
-    latency_std: float = 0.010 # Seconds (10ms)
-    packet_loss_rate: float = 0.0 # 0% to 100%
-    energy_cost_per_byte: float = 0.0 # Joules/Byte (for energy sim)
 
-class NetworkSimulator:
-    """
-    Simulates network conditions for FL.
-    """
+    def __init__(
+        self,
+        num_clients: int,
+        bandwidth_range: tuple[float, float] = (1.0, 100.0),
+        latency_range: tuple[float, float] = (10.0, 200.0),
+        drop_rate: float = 0.0,
+        seed: int = 42,
+    ) -> None:
+        """Initialize network simulation.
 
-    def __init__(self, config: NetworkConfig):
-        self.config = config
-
-    def simulate_transmission_time(self, size_bytes: int, upload: bool = True) -> Optional[float]:
+        Args:
+            num_clients: Number of clients.
+            bandwidth_range: Bandwidth range in Mbps.
+            latency_range: Latency range in ms.
+            drop_rate: Message drop probability.
+            seed: Random seed.
         """
-        Calculates time to transmit 'size_bytes'.
-        Returns None if packet loss occurs.
+        self.num_clients = num_clients
+        self.drop_rate = drop_rate
+        self.rng = np.random.default_rng(seed)
+
+        # Assign random network properties per client
+        self.bandwidths = self.rng.uniform(
+            bandwidth_range[0], bandwidth_range[1], size=num_clients
+        )
+        self.latencies = self.rng.uniform(
+            latency_range[0], latency_range[1], size=num_clients
+        )
+
+    def get_transmission_time(
+        self,
+        client_id: int,
+        size_bytes: int,
+    ) -> float:
+        """Compute transmission time for a client.
+
+        Args:
+            client_id: Client identifier.
+            size_bytes: Size of data in bytes.
+
+        Returns:
+            Transmission time in seconds.
         """
-        # 1. Packet Loss
-        if self.config.packet_loss_rate > 0:
-            if random.random() < self.config.packet_loss_rate:
-                return None # Dropped
+        bandwidth_bps = self.bandwidths[client_id] * 1e6 / 8  # Convert Mbps to bytes/s
+        latency_s = self.latencies[client_id] / 1000  # Convert ms to seconds
 
-        # 2. Bandwidth
-        bandwidth = self.config.bandwidth_upload if upload else self.config.bandwidth_download
-        bandwidth_bps = bandwidth * 1e6
+        return latency_s + size_bytes / bandwidth_bps
 
-        # Time = Size / Bandwidth
-        transfer_time = (size_bytes * 8) / bandwidth_bps
+    def is_message_dropped(self, client_id: int) -> bool:
+        """Check if a message should be dropped.
 
-        # 3. Latency
-        # Sample log-normal or normal latency?
-        # Using Normal clipped at 0 for simplicity, or just mean + noise
-        latency = random.gauss(self.config.latency_mean, self.config.latency_std)
-        latency = max(0.001, latency) # Minimum 1ms
+        Args:
+            client_id: Client identifier.
 
-        return transfer_time + latency
+        Returns:
+            True if message should be dropped.
+        """
+        return self.rng.random() < self.drop_rate
 
-    def estimate_energy(self, size_bytes: int) -> float:
-        return size_bytes * self.config.energy_cost_per_byte
+    def simulate_round_delays(
+        self,
+        model_size_bytes: int,
+    ) -> dict[int, float]:
+        """Simulate transmission delays for all clients.
+
+        Args:
+            model_size_bytes: Size of model in bytes.
+
+        Returns:
+            Dictionary mapping client ID to delay in seconds.
+        """
+        delays = {}
+        for client_id in range(self.num_clients):
+            if not self.is_message_dropped(client_id):
+                delays[client_id] = self.get_transmission_time(
+                    client_id, model_size_bytes
+                )
+        return delays

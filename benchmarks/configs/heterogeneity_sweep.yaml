@@ -1,0 +1,74 @@
+# Heterogeneity Sweep Benchmark
+# Unbitrium Standardized Benchmark Configuration
+
+experiment:
+  name: heterogeneity_alpha_sweep
+  description: Sweep over Dirichlet alpha values to study heterogeneity impact
+  version: 1.0.0
+
+dataset:
+  name: cifar10
+  root: ./data
+  download: true
+  normalize: true
+
+sweep:
+  parameter: partitioning.alpha
+  values: [0.01, 0.1, 0.5, 1.0, 5.0, 10.0, 100.0]
+
+partitioning:
+  strategy: dirichlet
+  alpha: 0.5  # Overridden by sweep
+  seed: 42
+
+clients:
+  num_clients: 100
+  participation_rate: 0.1
+  selection_strategy: random
+
+training:
+  num_rounds: 50
+  local_epochs: 5
+  batch_size: 32
+  learning_rate: 0.01
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+
+model:
+  architecture: resnet18
+  pretrained: false
+  num_classes: 10
+
+aggregators:
+  - name: fedavg
+    params: {}
+  - name: fedprox
+    params:
+      mu: 0.01
+  - name: fedsim
+    params:
+      similarity_threshold: 0.5
+
+metrics:
+  - accuracy
+  - loss
+  - emd
+  - label_entropy
+  - gradient_variance
+  - client_drift_norm
+
+logging:
+  level: INFO
+  save_checkpoints: false
+  tensorboard: true
+
+reproducibility:
+  seed: 42
+  deterministic: true
+
+output:
+  dir: ./results/heterogeneity_sweep
+  save_manifest: true
+  save_report: true
+  generate_plots: true

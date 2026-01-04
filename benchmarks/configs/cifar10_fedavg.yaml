@@ -1,0 +1,63 @@
+# CIFAR-10 Benchmark with FedAvg
+# Unbitrium Standardized Benchmark Configuration
+
+experiment:
+  name: cifar10_fedavg_baseline
+  description: Baseline FedAvg experiment on CIFAR-10 with Dirichlet partitioning
+  version: 1.0.0
+
+dataset:
+  name: cifar10
+  root: ./data
+  download: true
+  normalize: true
+
+partitioning:
+  strategy: dirichlet
+  alpha: 0.5
+  seed: 42
+
+clients:
+  num_clients: 100
+  participation_rate: 0.1
+  selection_strategy: random
+
+training:
+  num_rounds: 100
+  local_epochs: 5
+  batch_size: 32
+  learning_rate: 0.01
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+
+model:
+  architecture: resnet18
+  pretrained: false
+  num_classes: 10
+
+aggregator:
+  name: fedavg
+  params: {}
+
+metrics:
+  - accuracy
+  - loss
+  - emd
+  - label_entropy
+  - gradient_variance
+
+logging:
+  level: INFO
+  save_checkpoints: true
+  checkpoint_interval: 10
+  tensorboard: true
+
+reproducibility:
+  seed: 42
+  deterministic: true
+
+output:
+  dir: ./results/cifar10_fedavg
+  save_manifest: true
+  save_report: true

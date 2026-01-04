@@ -1,135 +1,164 @@
-"""
-Federated Simulator Orchestrator.
+"""Federated learning simulator.
+
+Provides end-to-end simulation orchestration.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
 
-from typing import List, Dict, Callable, Tuple
+from __future__ import annotations
+
+from typing import Any, Callable
+
 import torch
-import copy
+import torch.nn as nn
+import numpy as np
+
 from unbitrium.simulation.client import Client
 from unbitrium.simulation.server import Server
-from unbitrium.simulation.network import NetworkConfig, NetworkSimulator
+from unbitrium.simulation.network import Network
 from unbitrium.aggregators.base import Aggregator
+from unbitrium.aggregators.fedavg import FedAvg
+from unbitrium.partitioning.base import Partitioner
+from unbitrium.partitioning.dirichlet import DirichletPartitioner
 
-class FederatedSimulator:
-    """
-    Main entry point for running FL Simulations.
+
+class Simulator:
+    """End-to-end federated learning simulator.
+
+    Args:
+        model_fn: Factory function to create a model instance.
+        dataset: Tuple of (features, labels) tensors.
+        num_clients: Number of clients.
+        aggregator: Aggregation algorithm.
+        partitioner: Data partitioning strategy.
+        participation_rate: Fraction of clients per round.
+        seed: Random seed.
+
+    Example:
+        >>> sim = Simulator(
+        ...     model_fn=lambda: SimpleModel(),
+        ...     dataset=(X, y),
+        ...     num_clients=10,
+        ... )
+        >>> results = sim.run(num_rounds=10)
     """
 
     def __init__(
         self,
-        model: torch.nn.Module,
-        train_datasets: Dict[int, torch.utils.data.Dataset],
-        test_dataset: torch.utils.data.Dataset,
-        aggregator: Aggregator,
+        model_fn: Callable[[], nn.Module],
+        dataset: tuple[torch.Tensor, torch.Tensor],
+        num_clients: int = 10,
+        aggregator: Aggregator | None = None,
+        partitioner: Partitioner | None = None,
+        participation_rate: float = 1.0,
+        local_epochs: int = 1,
+        batch_size: int = 32,
+        learning_rate: float = 0.01,
+        seed: int = 42,
+    ) -> None:
+        """Initialize simulator.
+
+        Args:
+            model_fn: Model factory function.
+            dataset: (features, labels) tuple.
+            num_clients: Number of clients.
+            aggregator: Aggregation algorithm.
+            partitioner: Data partitioner.
+            participation_rate: Client participation rate.
+            local_epochs: Local training epochs.
+            batch_size: Training batch size.
+            learning_rate: Local learning rate.
+            seed: Random seed.
+        """
+        self.model_fn = model_fn
+        self.dataset = dataset
+        self.num_clients = num_clients
+        self.aggregator = aggregator or FedAvg()
+        self.partitioner = partitioner or DirichletPartitioner(num_clients, alpha=0.5, seed=seed)
+        self.participation_rate = participation_rate
+        self.local_epochs = local_epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
+
+        # Set up components
+        self._setup()
+
+    def _setup(self) -> None:
+        """Set up simulation components."""
+        X, y = self.dataset
+
+        # Partition data
+        client_indices = self.partitioner.partition(y.numpy())
+
+        # Create clients
+        self.clients: list[Client] = []
+        for client_id in range(self.num_clients):
+            indices = client_indices.get(client_id, [])
+            if len(indices) > 0:
+                client_X = X[indices]
+                client_y = y[indices]
+                client = Client(
+                    client_id=client_id,
+                    local_data=(client_X, client_y),
+                    model_fn=self.model_fn,
+                    batch_size=self.batch_size,
+                    learning_rate=self.learning_rate,
+                    local_epochs=self.local_epochs,
+                )
+                self.clients.append(client)
+
+        # Create server
+        self.server = Server(model_fn=self.model_fn, aggregator=self.aggregator)
+
+        # Create network
+        self.network = Network(num_clients=len(self.clients), seed=self.seed)
+
+    def run(
+        self,
         num_rounds: int = 10,
-        clients_per_round: int = 5,
-        epochs_per_round: int = 1,
-        lr: float = 0.01,
-        network_config: NetworkConfig = None,
-        device: str = "cpu"
-    ):
-        self.device = device
-        self.num_rounds = num_rounds
-        self.clients_per_round = clients_per_round
-        self.epochs = epochs_per_round
-        self.lr = lr
+    ) -> dict[str, list[float]]:
+        """Run federated simulation.
 
-        # Init Networking
-        self.net_sim = NetworkSimulator(network_config or NetworkConfig())
+        Args:
+            num_rounds: Number of training rounds.
 
-        # Init Server
-        self.server = Server(copy.deepcopy(model).to(device), aggregator)
-
-        # Init Clients
-        # Note: In large simulations, we don't instantiate 1000 Client objects upfront if memory is tight.
-        # We can instantiate them on demand or wrap dataset access.
-        # For Unbitrium (Research/Sim), we usually instantiate objects but keep models unloaded.
-        self.clients = {}
-        for cid, ds in train_datasets.items():
-            self.clients[cid] = Client(cid, ds, self.net_sim, device)
-
-        self.test_dataset = test_dataset
-        self.history = []
-
-    def run(self):
+        Returns:
+            Dictionary with metric histories.
         """
-        Executes the simulation.
-        """
-        print(f"Starting Simulation: {self.num_rounds} rounds, {self.clients_per_round} clients/rnd")
+        history: dict[str, list[float]] = {
+            "accuracy": [],
+            "loss": [],
+            "num_participants": [],
+        }
 
-        for r in range(self.num_rounds):
-            print(f"--- Round {r+1}/{self.num_rounds} ---")
+        X, y = self.dataset
 
-            # 1. Selection
-            # Available clients
-            all_cids = list(self.clients.keys())
-            selected_cids = self.server.select_clients(len(all_cids), self.clients_per_round, rng_seed=r)
-            actual_cids = [all_cids[i] for i in selected_cids]
+        for round_idx in range(num_rounds):
+            # Select participating clients
+            num_selected = max(1, int(len(self.clients) * self.participation_rate))
+            selected = self.rng.choice(
+                self.clients, size=num_selected, replace=False
+            ).tolist()
 
-            # 2. Downlink & Training
+            # Get global state
+            global_state = self.server.get_global_state()
+
+            # Train selected clients
             updates = []
+            for client in selected:
+                update = client.train(global_state)
+                updates.append(update)
 
-            for cid in actual_cids:
-                client = self.clients[cid]
+            # Aggregate
+            metrics = self.server.aggregate(updates)
+            history["num_participants"].append(float(len(updates)))
 
-                # Downlink
-                current_global = self.server.get_model()
-                client.set_model(current_global)
+            # Evaluate
+            eval_metrics = self.server.evaluate(X, y)
+            history["accuracy"].append(eval_metrics["accuracy"])
+            history["loss"].append(eval_metrics["loss"])
 
-                # Train
-                try:
-                    update = client.train(epochs=self.epochs, lr=self.lr)
-                    updates.append(update)
-                except Exception as e:
-                    print(f"Client {cid} failed training: {e}")
-                    # In real sim, track failures
-
-            # 3. Aggregation & Uplink
-            # Uplink simulation happens implicitly by passing 'update' object
-            # (We could check transmission success here via NetSim)
-
-            agg_metrics = self.server.aggregate_updates(updates)
-
-            # 4. Evaluation
-            test_acc, test_loss = self.evaluate()
-            print(f"Round {r+1} Result: Acc={test_acc:.4f}, Loss={test_loss:.4f}")
-
-            # Log
-            log_entry = {
-                "round": r + 1,
-                "test_acc": test_acc,
-                "test_loss": test_loss,
-                **agg_metrics
-            }
-            self.history.append(log_entry)
-
-        print("Simulation Complete.")
-        return self.history
-
-    def evaluate(self) -> Tuple[float, float]:
-        """
-        Evaluate Global Model on Test Set.
-        """
-        model = self.server.get_model()
-        model.eval()
-        loader = torch.utils.data.DataLoader(self.test_dataset, batch_size=64)
-
-        correct = 0
-        total = 0
-        running_loss = 0.0
-        criterion = torch.nn.functional.cross_entropy
-
-        with torch.no_grad():
-            for batch in loader:
-                if isinstance(batch, (list, tuple)):
-                    x, y = batch
-                    x, y = x.to(self.device), y.to(self.device)
-                    out = model(x)
-                    loss = criterion(out, y)
-                    running_loss += loss.item() * x.size(0)
-
-                    preds = out.argmax(dim=1)
-                    correct += (preds == y).sum().item()
-                    total += x.size(0)
-
-        return correct / total, running_loss / total
+        return history

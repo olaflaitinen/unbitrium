@@ -1,31 +1,36 @@
+"""Aggregators package for Unbitrium.
+
+Provides federated learning aggregation algorithms including FedAvg,
+FedProx, FedSim, and robust aggregation methods.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
-Federated Learning Aggregation Algorithms.
-"""
+
+from __future__ import annotations
 
 from unbitrium.aggregators.base import Aggregator
 from unbitrium.aggregators.fedavg import FedAvg
 from unbitrium.aggregators.fedprox import FedProx
-from unbitrium.aggregators.feddyn import FedDyn
 from unbitrium.aggregators.fedsim import FedSim
-from unbitrium.aggregators.pfedsim import pFedSim
+from unbitrium.aggregators.pfedsim import PFedSim
+from unbitrium.aggregators.feddyn import FedDyn
 from unbitrium.aggregators.fedcm import FedCM
+from unbitrium.aggregators.fedadam import FedAdam
+from unbitrium.aggregators.krum import Krum
+from unbitrium.aggregators.trimmed_mean import TrimmedMean
 from unbitrium.aggregators.afl_dcs import AFL_DCS
-from unbitrium.aggregators.fedopt import FedOpt, FedAdam, FedYogi, FedAdagrad
-from unbitrium.aggregators.robust import TrimmedMean, Krum
 
 __all__ = [
     "Aggregator",
     "FedAvg",
     "FedProx",
-    "FedDyn",
     "FedSim",
-    "pFedSim",
+    "PFedSim",
+    "FedDyn",
     "FedCM",
-    "AFL_DCS",
-    "FedOpt",
     "FedAdam",
-    "FedYogi",
-    "FedAdagrad",
-    "TrimmedMean",
     "Krum",
+    "TrimmedMean",
+    "AFL_DCS",
 ]

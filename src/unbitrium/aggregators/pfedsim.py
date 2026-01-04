@@ -1,92 +1,155 @@
-"""
-pFedSim Aggregator.
+"""pFedSim Aggregator implementation.
+
+Personalized similarity-guided aggregation that combines global model
+aggregation with client-specific personalization layers.
+
+Mathematical formulation:
+
+$$
+\\theta_g^{t+1} = \\sum_k \\omega_k(\\text{sim}) \\cdot \\theta_{k,\\text{shared}}^t
+$$
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
 
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
+
+from typing import Any
+
 import torch
+import torch.nn.functional as F
 
-from unbitrium.aggregators.fedsim import FedSim
+from unbitrium.aggregators.base import Aggregator
 
-class pFedSim(FedSim):
+
+class PFedSim(Aggregator):
+    """Personalized similarity-guided federated aggregator.
+
+    Extends FedSim with personalization by decoupling shared and
+    client-specific model layers during aggregation.
+
+    Args:
+        similarity_threshold: Minimum similarity to include a client.
+        personalization_weight: Weight given to personalized layers.
+        shared_layer_prefix: Prefix for shared layer names (default: all layers).
+
+    Example:
+        >>> aggregator = PFedSim(similarity_threshold=0.5, personalization_weight=0.3)
+        >>> new_model, metrics = aggregator.aggregate(updates, global_model)
     """
-    Personalized FedSim (pFedSim).
 
-    Aggregates only SHARED layers based on similarity.
-    Personalized layers (Heads) are not aggregated or are handled separately.
-    """
+    def __init__(
+        self,
+        similarity_threshold: float = 0.0,
+        personalization_weight: float = 0.3,
+        shared_layer_prefix: str | None = None,
+    ) -> None:
+        """Initialize pFedSim aggregator.
 
-    def __init__(self, shared_layer_names: List[str] = None):
-        """
         Args:
-            shared_layer_names: List of keys (prefixes) to aggregate. If None, assumes all.
-                                In real usage, this should be configured to exclude heads.
+            similarity_threshold: Minimum cosine similarity threshold.
+            personalization_weight: Weight for personalized layers.
+            shared_layer_prefix: Prefix identifying shared layers.
         """
-        self.shared_layer_names = shared_layer_names or []
+        self.similarity_threshold = similarity_threshold
+        self.personalization_weight = personalization_weight
+        self.shared_layer_prefix = shared_layer_prefix
+
+    def _flatten_state_dict(self, state_dict: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Flatten model parameters into a single vector."""
+        tensors = []
+        for key, value in state_dict.items():
+            if isinstance(value, torch.Tensor):
+                tensors.append(value.view(-1).float())
+        return torch.cat(tensors) if tensors else torch.tensor([])
+
+    def _compute_similarity(
+        self,
+        client_state: dict[str, torch.Tensor],
+        global_state: dict[str, torch.Tensor],
+    ) -> float:
+        """Compute cosine similarity between client and global model."""
+        client_flat = self._flatten_state_dict(client_state)
+        global_flat = self._flatten_state_dict(global_state)
+
+        if client_flat.numel() == 0 or global_flat.numel() == 0:
+            return 0.0
+
+        similarity = F.cosine_similarity(
+            client_flat.unsqueeze(0),
+            global_flat.unsqueeze(0),
+        )
+        return similarity.item()
+
+    def _is_shared_layer(self, key: str) -> bool:
+        """Check if a layer key belongs to shared layers."""
+        if self.shared_layer_prefix is None:
+            return True
+        return key.startswith(self.shared_layer_prefix)
 
     def aggregate(
         self,
-        updates: List[Dict[str, Any]],
-        current_global_model: torch.nn.Module
-    ) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        updates: list[dict[str, Any]],
+        current_global_model: torch.nn.Module,
+    ) -> tuple[torch.nn.Module, dict[str, float]]:
+        """Aggregate shared layers with similarity weighting.
 
-        # Filter updates to only include shared layers
-        # In pFedSim, the global model usually only maintains the body.
-        # But here we assume updates contain everything, and we selectively update the global.
+        Args:
+            updates: List of client updates with 'state_dict' and 'num_samples'.
+            current_global_model: Current global model.
 
-        # 1. Identify keys to aggregate
-        ref_keys = list(current_global_model.state_dict().keys())
-        keys_to_agg = []
-        if not self.shared_layer_names:
-            keys_to_agg = ref_keys
-        else:
-            for k in ref_keys:
-                if any(start in k for start in self.shared_layer_names):
-                    keys_to_agg.append(k)
+        Returns:
+            Tuple of (updated global model, aggregation metrics).
+        """
+        if not updates:
+            return current_global_model, {"aggregated_clients": 0.0}
 
-        # 2. Extract Sub-State Dicts
-        sub_updates = []
-        for u in updates:
-            sd = u["state_dict"]
-            filtered = {k: sd[k] for k in keys_to_agg if k in sd}
-            sub_updates.append({"state_dict": filtered})
+        global_state = current_global_model.state_dict()
 
-        # 3. Create a temporary 'sub-model' to leverage FedSim logic?
-        # Alternatively, just use internal helpers manually.
+        # Compute similarities
+        similarities = []
+        for update in updates:
+            sim = self._compute_similarity(update["state_dict"], global_state)
+            similarities.append(sim)
 
-        if not sub_updates:
-            return current_global_model, {}
+        # Filter by threshold
+        valid_updates = []
+        valid_sims = []
+        for update, sim in zip(updates, similarities):
+            if sim >= self.similarity_threshold:
+                valid_updates.append(update)
+                valid_sims.append(sim)
 
-        # Re-use flattening logic from FedSim but only on filtered keys
-        # ... copying FedSim logic for brevity/customization
+        if not valid_updates:
+            return current_global_model, {"aggregated_clients": 0.0}
 
-        # Flatten global relevant parts
-        global_sd = current_global_model.state_dict()
-        filtered_global = {k: global_sd[k] for k in keys_to_agg}
-        global_vec = self._flatten(filtered_global)
+        # Normalize similarities as weights
+        weights = F.softmax(torch.tensor(valid_sims), dim=0).tolist()
 
-        sims = []
-        flat_updates = []
-        for u in sub_updates:
-            flat = self._flatten(u["state_dict"])
-            flat_updates.append(flat)
-            cos_sim = torch.nn.functional.cosine_similarity(global_vec.unsqueeze(0), flat.unsqueeze(0)).item()
-            sims.append(max(0.0, cos_sim))
+        # Aggregate shared layers
+        new_state_dict: dict[str, torch.Tensor] = {}
+        first_state = valid_updates[0]["state_dict"]
 
-        total_sim = sum(sims)
-        if total_sim < 1e-9:
-             weights = [1.0 / len(updates)] * len(updates)
-        else:
-             weights = [s / total_sim for s in sims]
+        for key in first_state.keys():
+            if isinstance(first_state[key], torch.Tensor):
+                if self._is_shared_layer(key):
+                    # Aggregate shared layers
+                    weighted_sum = torch.zeros_like(first_state[key], dtype=torch.float32)
+                    for update, weight in zip(valid_updates, weights):
+                        weighted_sum += update["state_dict"][key].float() * weight
+                    new_state_dict[key] = weighted_sum.to(first_state[key].dtype)
+                else:
+                    # Keep global model for non-shared layers
+                    new_state_dict[key] = global_state[key]
+            else:
+                new_state_dict[key] = first_state[key]
 
-        new_flat = torch.zeros_like(global_vec)
-        for w, flat in zip(weights, flat_updates):
-            new_flat += w * flat
+        current_global_model.load_state_dict(new_state_dict)
 
-        new_sub_state = self._unflatten(new_flat, filtered_global)
-
-        # Merge back into global
-        final_sd = global_sd.copy()
-        final_sd.update(new_sub_state)
-        current_global_model.load_state_dict(final_sd)
-
-        return current_global_model, {"avg_shared_similarity": float(sum(sims)/len(sims))}
+        metrics = {
+            "num_participants": float(len(valid_updates)),
+            "avg_similarity": float(sum(valid_sims) / len(valid_sims)),
+            "personalization_weight": self.personalization_weight,
+        }
+        return current_global_model, metrics

@@ -1,84 +1,113 @@
-"""
-FedDyn Aggregator.
+"""FedDyn Aggregator implementation.
+
+Dynamic regularization for improved convergence under heterogeneity.
+
+Mathematical formulation:
+
+$$
+F_k(w) - \\langle a_k^t, w \\rangle + \\frac{\\alpha}{2} \\| w \\|^2
+$$
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
 
-from typing import Any, Dict, List, Tuple
+from __future__ import annotations
+
+from typing import Any
+
 import torch
 
 from unbitrium.aggregators.base import Aggregator
 
+
 class FedDyn(Aggregator):
-    """
-    Federated Dynamic Regularization (FedDyn).
+    """FedDyn aggregator with dynamic regularization.
 
-    Paper: "Federated Learning on Non-IID Data via Dynamic Regularization" (ICLR 2021).
+    Maintains per-client dual variables to correct for local drift,
+    improving convergence in heterogeneous settings.
 
-    Server maintains state `h_server`.
-    Aggregation rule:
-    $$
-    w^{t+1} = \frac{1}{N} \sum_k w_k^{t+1} - \frac{1}{\alpha} h^{t+1}
-    $$
-    Updates h:
-    $$
-    h^{t+1} = h^t - \alpha (w^{t+1} - \text{avg}(w_k))
-    $$
+    Args:
+        alpha: Regularization coefficient.
+        num_clients: Total number of clients.
+
+    Example:
+        >>> aggregator = FedDyn(alpha=0.01, num_clients=100)
+        >>> new_model, metrics = aggregator.aggregate(updates, global_model)
     """
 
-    def __init__(self, alpha: float = 0.1):
+    def __init__(self, alpha: float = 0.01, num_clients: int = 100) -> None:
+        """Initialize FedDyn aggregator.
+
+        Args:
+            alpha: Regularization coefficient.
+            num_clients: Total number of clients.
+        """
         self.alpha = alpha
-        self.h_server: Dict[str, torch.Tensor] = {}
+        self.num_clients = num_clients
+        self._h: dict[str, torch.Tensor] | None = None  # Gradient correction term
 
     def aggregate(
         self,
-        updates: List[Dict[str, Any]],
-        current_global_model: torch.nn.Module
-    ) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        updates: list[dict[str, Any]],
+        current_global_model: torch.nn.Module,
+    ) -> tuple[torch.nn.Module, dict[str, float]]:
+        """Aggregate with dynamic regularization correction.
 
+        Args:
+            updates: List of client updates with 'state_dict' and 'num_samples'.
+            current_global_model: Current global model.
+
+        Returns:
+            Tuple of (updated global model, aggregation metrics).
+        """
         if not updates:
-            return current_global_model, {}
+            return current_global_model, {"aggregated_clients": 0.0}
 
-        num_clients = len(updates) # FedDyn usually assumes equal weighting or treats clients as tasks
-        # Assuming equal weight sum first for simplicity of Formula
+        total_samples = sum(u.get("num_samples", 0) for u in updates)
+        if total_samples == 0:
+            return current_global_model, {"aggregated_clients": 0.0}
 
-        # 1. Compute Average of client Models
-        avg_state_dict = {}
+        global_state = current_global_model.state_dict()
+
+        # Initialize correction term if needed
+        if self._h is None:
+            self._h = {
+                k: torch.zeros_like(v, dtype=torch.float32)
+                for k, v in global_state.items()
+                if isinstance(v, torch.Tensor)
+            }
+
+        # Compute weighted average
+        new_state_dict: dict[str, torch.Tensor] = {}
         first_state = updates[0]["state_dict"]
 
         for key in first_state.keys():
             if isinstance(first_state[key], torch.Tensor):
-                avg_val = torch.zeros_like(first_state[key], dtype=torch.float32) # Accumulate in float32
-                for u in updates:
-                    avg_val += u["state_dict"][key].to(torch.float32)
-                avg_val /= num_clients
-                avg_state_dict[key] = avg_val
+                weighted_sum = torch.zeros_like(first_state[key], dtype=torch.float32)
+                for update in updates:
+                    weight = update["num_samples"] / total_samples
+                    weighted_sum += update["state_dict"][key].float() * weight
 
-        # 2. Update Server State h
-        # Initialize h if empty
-        if not self.h_server:
-             for k, v in avg_state_dict.items():
-                 self.h_server[k] = torch.zeros_like(v)
+                # Apply gradient correction
+                if key in self._h:
+                    correction = self._h[key] / self.alpha
+                    weighted_sum = weighted_sum - correction
 
-        # 3. Compute New Global Model
-        # w_new = avg_model - (1/alpha) * h_old
-        new_state_dict = {}
-        for key, avg_w in avg_state_dict.items():
-             h = self.h_server[key]
-             new_w = avg_w - (1.0 / self.alpha) * h
-             new_state_dict[key] = new_w
+                new_state_dict[key] = weighted_sum.to(first_state[key].dtype)
 
-        # 4. Update h_server for next round
-        # h_new = h_old - alpha * (w_new - avg_w)
-        for key in avg_state_dict.keys():
-            self.h_server[key] -= self.alpha * (new_state_dict[key] - avg_state_dict[key])
+                # Update correction term
+                if key in self._h:
+                    delta = global_state[key].float() - weighted_sum
+                    self._h[key] = self._h[key] - self.alpha * delta
+            else:
+                new_state_dict[key] = first_state[key]
 
-        # Load back
-        # Note: FedDyn weights might perform outside valid range if strict bounds exist (e.g. BatchNorm), careful.
-        # Converting back to original dtype
-        final_state_dict = {}
-        original_state = current_global_model.state_dict()
-        for k, v in new_state_dict.items():
-            final_state_dict[k] = v.to(original_state[k].dtype)
+        current_global_model.load_state_dict(new_state_dict)
 
-        current_global_model.load_state_dict(final_state_dict)
-
-        return current_global_model, {"feddyn_alpha": self.alpha}
+        metrics = {
+            "num_participants": float(len(updates)),
+            "total_samples": float(total_samples),
+            "alpha": self.alpha,
+        }
+        return current_global_model, metrics

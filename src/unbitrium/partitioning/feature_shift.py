@@ -1,65 +1,125 @@
-"""
-Feature Shift Clustering Partitioner.
+"""Feature Shift Partitioner implementation.
+
+Partitions data based on input feature distributions.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
 
-from typing import Any, Dict, List
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+
 from unbitrium.partitioning.base import Partitioner
 
-# Optional dependency
-try:
-    from sklearn.cluster import KMeans
-    from sklearn.decomposition import PCA
-except ImportError:
-    KMeans = None
 
-class FeatureShiftClustering(Partitioner):
+class FeatureShiftPartitioner(Partitioner):
+    """Feature shift partitioner.
+
+    Creates heterogeneity based on input feature distributions rather
+    than label distributions, simulating covariate shift.
+
+    Args:
+        num_clients: Number of clients.
+        num_clusters: Number of feature clusters.
+        seed: Random seed.
+
+    Example:
+        >>> partitioner = FeatureShiftPartitioner(num_clients=10, num_clusters=5)
+        >>> client_indices = partitioner.partition(features)
     """
-    Partitions based on feature similarity (Clustering).
 
-    1. Extract features (or flatten raw data).
-    2. Run KMeans with K=num_clients.
-    3. Assign clusters to clients.
-    """
+    def __init__(
+        self,
+        num_clients: int,
+        num_clusters: int | None = None,
+        seed: int = 42,
+    ) -> None:
+        """Initialize feature shift partitioner.
 
-    def __init__(self, num_clients: int, seed: int = 42, pca_components: int = 50):
+        Args:
+            num_clients: Number of clients.
+            num_clusters: Number of feature clusters (default: num_clients).
+            seed: Random seed.
+        """
         super().__init__(num_clients, seed)
-        self.pca_components = pca_components
+        self.num_clusters = num_clusters or num_clients
 
-    def partition(self, dataset: Any) -> Dict[int, List[int]]:
-        if KMeans is None:
-            raise ImportError("scikit-learn is required for FeatureShiftClustering")
+    def partition(self, features: np.ndarray | Any) -> dict[int, list[int]]:
+        """Partition based on feature clustering.
 
-        # Extract data. Assume Image or Tensor dataset.
-        # We need access to .data or loop __getitem__
-        # For efficiency, try to access tensor directly if standard
+        Args:
+            features: 2D array of input features.
 
-        data_matrix = None
-        if hasattr(dataset, "data"):
-             data_matrix = dataset.data
-             # Check shape
-             if len(data_matrix.shape) > 2:
-                 data_matrix = data_matrix.reshape(data_matrix.shape[0], -1)
-        else:
-             # Very slow loop fallback
-             pass
+        Returns:
+            Dictionary mapping client IDs to sample indices.
+        """
+        if hasattr(features, "numpy"):
+            features = features.numpy()
+        features = np.asarray(features)
 
-        if data_matrix is None:
-             raise ValueError("Dataset does not expose .data for clustering.")
+        if features.ndim == 1:
+            features = features.reshape(-1, 1)
 
-        # PCA
-        if self.pca_components and data_matrix.shape[1] > self.pca_components:
-            pca = PCA(n_components=self.pca_components, random_state=self.seed)
-            embeddings = pca.fit_transform(data_matrix)
-        else:
-            embeddings = data_matrix
+        num_samples = len(features)
+        rng = np.random.default_rng(self.seed)
 
-        # Cluster
-        kmeans = KMeans(n_clusters=self.num_clients, random_state=self.seed)
-        labels = kmeans.fit_predict(embeddings)
+        # Simple k-means clustering
+        cluster_labels = self._kmeans(features, self.num_clusters, rng)
 
-        client_indices = {i: [] for i in range(self.num_clients)}
-        for idx, label in enumerate(labels):
-            client_indices[int(label)].append(idx)
+        # Map clusters to clients (round-robin if more clusters than clients)
+        client_indices: dict[int, list[int]] = {i: [] for i in range(self.num_clients)}
+
+        for idx, cluster in enumerate(cluster_labels):
+            client_id = cluster % self.num_clients
+            client_indices[client_id].append(idx)
 
         return client_indices
+
+    def _kmeans(
+        self,
+        features: np.ndarray,
+        k: int,
+        rng: np.random.Generator,
+        max_iters: int = 100,
+    ) -> np.ndarray:
+        """Simple k-means clustering.
+
+        Args:
+            features: Feature matrix.
+            k: Number of clusters.
+            rng: Random generator.
+            max_iters: Maximum iterations.
+
+        Returns:
+            Cluster labels for each sample.
+        """
+        num_samples = len(features)
+
+        # Initialize centroids randomly
+        centroid_indices = rng.choice(num_samples, size=k, replace=False)
+        centroids = features[centroid_indices].copy()
+
+        labels = np.zeros(num_samples, dtype=int)
+
+        for _ in range(max_iters):
+            # Assign to nearest centroid
+            new_labels = np.zeros(num_samples, dtype=int)
+            for i in range(num_samples):
+                distances = np.linalg.norm(features[i] - centroids, axis=1)
+                new_labels[i] = np.argmin(distances)
+
+            # Check convergence
+            if np.array_equal(labels, new_labels):
+                break
+            labels = new_labels
+
+            # Update centroids
+            for c in range(k):
+                mask = labels == c
+                if mask.any():
+                    centroids[c] = features[mask].mean(axis=0)
+
+        return labels

@@ -1,37 +1,40 @@
+"""Base aggregator interface for Unbitrium.
+
+Defines the abstract base class that all aggregation algorithms must implement.
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
-Base Aggregator class.
-"""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple
+from typing import Any
+
+import torch
+
 
 class Aggregator(ABC):
-    """
-    Abstract base class for server-side aggregation strategies.
+    """Abstract base class for federated learning aggregators.
+
+    All aggregation algorithms (FedAvg, FedProx, FedSim, etc.) must
+    inherit from this class and implement the aggregate method.
     """
 
     @abstractmethod
     def aggregate(
         self,
-        updates: List[Dict[str, Any]],
-        current_global_model: Any
-    ) -> Tuple[Any, Dict[str, float]]:
-        """
-        Aggregates client updates into a new global model.
+        updates: list[dict[str, Any]],
+        current_global_model: torch.nn.Module,
+    ) -> tuple[torch.nn.Module, dict[str, float]]:
+        """Aggregate client model updates into a new global model.
 
-        Parameters
-        ----------
-        updates : List[Dict[str, Any]]
-            List of updates from clients. Each update dict must contain:
-            - 'client_id': int
-            - 'weights': Any (state_dict or similar)
-            - 'num_samples': int
-        current_global_model : Any
-            The current global model (for reference or differencing).
+        Args:
+            updates: List of client updates. Each update is a dictionary
+                containing at minimum 'state_dict' and 'num_samples'.
+            current_global_model: The current global model.
 
-        Returns
-        -------
-        Tuple[Any, Dict[str, float]]
-            (new_global_model, aggregation_metrics)
+        Returns:
+            Tuple of (updated global model, aggregation metrics).
         """
         pass

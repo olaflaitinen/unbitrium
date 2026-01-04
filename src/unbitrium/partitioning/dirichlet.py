@@ -1,62 +1,113 @@
-"""
-Dirichlet Label Skew Partitioner.
+"""Dirichlet Label Skew Partitioner.
+
+Implements Dirichlet-multinomial sampling for creating non-IID client
+data distributions with controlled label skew.
+
+Mathematical formulation:
+
+$$
+p_k \\sim \\text{Dirichlet}(\\alpha \\mathbf{1})
+$$
+
+where $\\alpha$ controls heterogeneity (lower = more skewed).
+
+Author: Olaf Yunus Laitinen Imanov <oyli@dtu.dk>
+License: EUPL-1.2
 """
 
-from typing import Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+
 from unbitrium.partitioning.base import Partitioner
 
-class DirichletLabelSkew(Partitioner):
-    """
-    Dirichlet partitioning ensuring label skew.
 
-    Each client $k$ has label distribution $p_k \sim Dir(\alpha)$.
+class DirichletPartitioner(Partitioner):
+    """Dirichlet-based label skew partitioner.
+
+    Distributes data across clients using Dirichlet-sampled proportions
+    for each class, creating controlled heterogeneous distributions.
+
+    Args:
+        num_clients: Number of clients to partition data across.
+        alpha: Dirichlet concentration parameter. Lower values create
+            more heterogeneous distributions.
+        seed: Random seed for reproducibility.
+
+    Example:
+        >>> partitioner = DirichletPartitioner(num_clients=10, alpha=0.5)
+        >>> client_indices = partitioner.partition(labels)
     """
 
-    def __init__(self, num_clients: int, alpha: float = 0.5, seed: int = 42):
+    def __init__(
+        self,
+        num_clients: int,
+        alpha: float = 0.5,
+        seed: int = 42,
+    ) -> None:
+        """Initialize Dirichlet partitioner.
+
+        Args:
+            num_clients: Number of clients.
+            alpha: Dirichlet concentration parameter.
+            seed: Random seed.
+        """
         super().__init__(num_clients, seed)
         self.alpha = alpha
 
-    def partition(self, dataset: Any) -> Dict[int, List[int]]:
+    def partition(self, labels: np.ndarray | Any) -> dict[int, list[int]]:
+        """Partition dataset indices by Dirichlet-sampled label distributions.
+
+        Args:
+            labels: Array of class labels for each sample.
+
+        Returns:
+            Dictionary mapping client IDs to lists of sample indices.
         """
-        Partitions the dataset.
-        Assumption: sub-class/base helper extracts targets.
-        """
-        targets = self._get_targets(dataset)
-        num_classes = len(np.unique(targets))
-        num_samples = len(targets)
+        if hasattr(labels, "numpy"):
+            labels = labels.numpy()
+        labels = np.asarray(labels)
+
+        num_classes = len(np.unique(labels))
+        num_samples = len(labels)
 
         # Get indices per class
-        class_indices = [np.where(targets == c)[0] for c in range(num_classes)]
+        class_indices = [np.where(labels == c)[0] for c in range(num_classes)]
 
-        client_indices = {i: [] for i in range(self.num_clients)}
-
+        client_indices: dict[int, list[int]] = {i: [] for i in range(self.num_clients)}
         rng = np.random.default_rng(self.seed)
 
-        # Distribute class by class
+        # Distribute each class according to Dirichlet-sampled proportions
         for c in range(num_classes):
-            k = len(class_indices[c])
-            # Sample proportions for this class across clients from Dir(alpha)
+            indices = class_indices[c].copy()
+            num_class_samples = len(indices)
+
+            if num_class_samples == 0:
+                continue
+
+            # Sample proportions from Dirichlet distribution
             proportions = rng.dirichlet(np.repeat(self.alpha, self.num_clients))
 
-            # Convert props to counts (noisy rounding)
-            # Use multinomial to convert float props to integers summing to k
-            proportions = np.array([p * (len(class_indices[c]) < num_samples / num_classes) for p in proportions])
-            # Re-normalize to avoid zero sum issues?
-            proportions = proportions / proportions.sum()
+            # Convert proportions to sample counts
+            counts = (proportions * num_class_samples).astype(int)
+            # Handle rounding errors
+            remainder = num_class_samples - counts.sum()
+            for i in range(remainder):
+                counts[i % self.num_clients] += 1
 
-            counts = rng.multinomial(k, proportions)
-
-            # Shuffle indices of this class
-            indices = class_indices[c].copy()
+            # Shuffle and assign indices
             rng.shuffle(indices)
-
-            # Assign
-            curr = 0
+            current = 0
             for client_id in range(self.num_clients):
                 count = counts[client_id]
-                assigned = indices[curr : curr+count]
+                assigned = indices[current : current + count].tolist()
                 client_indices[client_id].extend(assigned)
-                curr += count
+                current += count
 
         return client_indices
+
+
+# Alias for backward compatibility
+DirichletLabelSkew = DirichletPartitioner
