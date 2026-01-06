@@ -69,10 +69,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Set working directory
 WORKDIR /app
 
-# Copy application files
-COPY --chown=unbitrium:unbitrium examples/ ./examples/
-COPY --chown=unbitrium:unbitrium benchmarks/ ./benchmarks/
-
 # Switch to non-root user
 USER unbitrium
 
@@ -98,43 +94,3 @@ USER unbitrium
 
 # Default command for development
 CMD ["pytest", "-v"]
-
-# -----------------------------------------------------------------------------
-# Stage 4: GPU Runtime (optional)
-# -----------------------------------------------------------------------------
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS gpu
-
-# Labels
-LABEL org.opencontainers.image.title="Unbitrium GPU" \
-      org.opencontainers.image.description="GPU-enabled Federated Learning Simulator"
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive
-
-# Install Python and dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
-    python3.12-venv \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create symlinks
-RUN ln -sf /usr/bin/python3.12 /usr/bin/python
-
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install PyTorch with CUDA support
-RUN pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash unbitrium
-USER unbitrium
-
-WORKDIR /app
-
-# Verify GPU installation
-CMD ["python", "-c", "import torch; print(f'CUDA: {torch.cuda.is_available()}')"]
