@@ -1,11 +1,8 @@
 # =============================================================================
 # Container Build Workflow
 # =============================================================================
-# Builds and pushes Docker images to GitHub Container Registry and Docker Hub.
-#
-# Required Secrets:
-#   - DOCKERHUB_USERNAME: Docker Hub username
-#   - DOCKERHUB_TOKEN: Docker Hub access token
+# Builds and pushes Docker images to GitHub Container Registry.
+# Docker Hub push is optional and requires DOCKERHUB_USERNAME/TOKEN secrets.
 #
 # See: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 
@@ -25,7 +22,6 @@ permissions:
 
 env:
   REGISTRY_GHCR: ghcr.io
-  REGISTRY_DOCKER: docker.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -53,7 +49,6 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
-            ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -71,15 +66,6 @@ jobs:
           registry: ${{ env.REGISTRY_GHCR }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        with:
-          registry: ${{ env.REGISTRY_DOCKER }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-        continue-on-error: true
 
       - name: Build and push
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
