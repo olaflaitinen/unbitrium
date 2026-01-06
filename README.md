@@ -26,7 +26,7 @@
   <a href="https://olaflaitinen.github.io/unbitrium/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue" alt="Docs" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen" alt="Dependabot" /></a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?label=OSSF" alt="Scorecard" /></a>
-  <a href="https://doi.org/10.5281/zenodo.XXXXXXX"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg" alt="DOI" /></a>
+  <a href="https://doi.org/10.5281/zenodo.18160043"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.18160043.svg" alt="DOI" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/repo-size/olaflaitinen/unbitrium?label=Size" alt="Repo Size" /></a>
 </p>
 

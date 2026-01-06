@@ -5,6 +5,8 @@ version: 1.0.0
 date-released: 2026-01-03
 url: "https://github.com/olaflaitinen/unbitrium"
 license: EUPL-1.2
+doi: 10.5281/zenodo.18160043
+repository-code: "https://github.com/olaflaitinen/unbitrium"
 authors:
   - family-names: "Laitinen Imanov"
     given-names: "Olaf Yunus"
