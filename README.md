@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>Federated Learning Simulator and Benchmarking Platform</strong>
+  <strong>Production-Grade Federated Learning Simulator and Benchmarking Platform</strong>
 </p>
 
 <p align="center">
@@ -26,6 +26,7 @@
   <a href="https://olaflaitinen.github.io/unbitrium/"><img src="https://img.shields.io/badge/Docs-MkDocs-blue" alt="Docs" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium/network/dependabot"><img src="https://img.shields.io/badge/Dependabot-enabled-brightgreen" alt="Dependabot" /></a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/ossf-scorecard/github.com/olaflaitinen/unbitrium?label=OSSF" alt="Scorecard" /></a>
+  <a href="https://doi.org/10.5281/zenodo.XXXXXXX"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg" alt="DOI" /></a>
   <a href="https://github.com/olaflaitinen/unbitrium"><img src="https://img.shields.io/github/repo-size/olaflaitinen/unbitrium?label=Size" alt="Repo Size" /></a>
 </p>
 
@@ -60,13 +61,18 @@
 
 ## Overview
 
-**Unbitrium** is a federated learning simulator and benchmarking platform designed for reproducible research under data heterogeneity. It provides:
+**Unbitrium** is a production-grade federated learning simulator and benchmarking platform designed for reproducible research under data heterogeneity. Built at DTU Compute, it provides the tools necessary to conduct rigorous FL experiments with statistically meaningful results.
 
-- **Reproducible Non-IID Partitioning**: Dirichlet label skew, Mixture-of-Dirichlet-Multinomials (MoDM), quantity skew (power-law), feature shift clustering, and entropy-controlled partitions.
-- **Advanced Aggregation Algorithms**: FedAvg, FedProx, FedDyn, FedSim, pFedSim, FedCM, AFL-DCS, FedOpt family (FedAdam, FedYogi, FedAdagrad), and robust aggregators (Trimmed Mean, Median, Krum).
-- **Heterogeneity Metrics**: Earth Mover's Distance (EMD), KL/JS divergence, total variation, label entropy, gradient variance, cosine disagreement, NMI, centered kernel alignment, and drift norms.
-- **System Realism Simulation**: Network dynamics (latency, jitter, packet loss, bandwidth), device constraints (compute, memory, energy), client schedulers, and straggler modeling.
-- **Experiment Provenance**: Machine-readable manifests, reproducible seeds, and comprehensive reporting.
+### Key Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| Non-IID Partitioning | Dirichlet label skew, MoDM, quantity skew, feature shift, entropy-controlled |
+| Advanced Aggregation | FedAvg, FedProx, FedDyn, FedSim, pFedSim, FedCM, AFL-DCS, FedOpt family, robust methods |
+| Heterogeneity Metrics | EMD, KL/JS divergence, gradient variance, NMI, CKA, drift norms |
+| System Realism | Network latency/jitter/packet loss, device constraints, energy modeling |
+| Reproducibility | Deterministic RNG, provenance tracking, comprehensive reporting |
+| Privacy | Differential privacy (Gaussian/Laplace), secure aggregation simulation |
 
 ---
 
@@ -76,19 +82,25 @@
 2. [Quick Start](#quick-start)
 3. [Architecture](#architecture)
 4. [Modules](#modules)
-5. [Configuration](#configuration)
-6. [Tutorials](#tutorials)
-7. [Benchmarks](#benchmarks)
-8. [API Reference](#api-reference)
-9. [Contributing](#contributing)
-10. [License](#license)
-11. [Citation](#citation)
+5. [Partitioning Strategies](#partitioning-strategies)
+6. [Aggregation Algorithms](#aggregation-algorithms)
+7. [Heterogeneity Metrics](#heterogeneity-metrics)
+8. [Configuration](#configuration)
+9. [Tutorials](#tutorials)
+10. [Benchmarks](#benchmarks)
+11. [API Reference](#api-reference)
+12. [Development](#development)
+13. [Contributing](#contributing)
+14. [Security](#security)
+15. [License](#license)
+16. [Citation](#citation)
+17. [Acknowledgments](#acknowledgments)
 
 ---
 
 ## Installation
 
-### From PyPI
+### From PyPI (Recommended)
 
 ```bash
 pip install unbitrium
@@ -102,15 +114,43 @@ cd unbitrium
 pip install -e ".[dev]"
 ```
 
+### Using Docker
+
+```bash
+docker pull olaflaitinen/unbitrium:latest
+docker run -it unbitrium python -c "import unbitrium; print(unbitrium.__version__)"
+```
+
+### Using Docker Compose
+
+```bash
+git clone https://github.com/olaflaitinen/unbitrium.git
+cd unbitrium
+docker compose up -d
+```
+
 ### Requirements
 
-- Python >= 3.10
-- PyTorch >= 2.0 (primary backend)
-- Optional: JAX, TensorFlow adapters
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| Python | >= 3.10 | >= 3.12 |
+| PyTorch | >= 2.0 | >= 2.2 |
+| RAM | 8 GB | 16 GB |
+| GPU | Optional | NVIDIA CUDA |
+
+### Verify Installation
+
+```python
+import unbitrium as ub
+print(f"Version: {ub.__version__}")
+print(f"Author: {ub.__author__}")
+```
 
 ---
 
 ## Quick Start
+
+### Minimal Example
 
 ```python
 import unbitrium as ub
@@ -142,6 +182,71 @@ print(f"EMD: {metrics['emd']:.4f}, JS Divergence: {metrics['js_divergence']:.4f}
 
 # Generate report
 ub.bench.generate_report(results, metrics, output_dir="./results")
+```
+
+### Complete Working Example
+
+```python
+"""Complete federated learning example with Unbitrium."""
+
+from __future__ import annotations
+
+import torch
+import torch.nn as nn
+import numpy as np
+
+from unbitrium.aggregators import FedAvg
+from unbitrium.partitioning import DirichletPartitioner
+from unbitrium.metrics import compute_emd, compute_label_entropy
+from unbitrium.simulation import Client
+
+# Configuration
+NUM_CLIENTS = 10
+ALPHA = 0.5
+NUM_ROUNDS = 10
+SEED = 42
+
+# Set seeds
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+# Generate synthetic data
+X = torch.randn(1000, 10)
+y = torch.randint(0, 3, (1000,))
+
+# Partition data
+partitioner = DirichletPartitioner(num_clients=NUM_CLIENTS, alpha=ALPHA, seed=SEED)
+client_indices = partitioner.partition(y.numpy())
+
+# Measure heterogeneity
+print(f"EMD: {compute_emd(y.numpy(), client_indices):.4f}")
+print(f"Entropy: {compute_label_entropy(y.numpy(), client_indices):.4f}")
+
+# Simple model
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(10, 3)
+
+    def forward(self, x):
+        return self.fc(x)
+
+# Create clients
+clients = [
+    Client(i, (X[idx], y[idx]), Model, local_epochs=1)
+    for i, idx in enumerate(client_indices.values())
+]
+
+# Training loop
+global_model = Model()
+aggregator = FedAvg()
+
+for round_num in range(NUM_ROUNDS):
+    updates = [c.train(global_model.state_dict()) for c in clients]
+    global_model, metrics = aggregator.aggregate(updates, global_model)
+    print(f"Round {round_num + 1}: {metrics}")
+
+print("Training complete!")
 ```
 
 ---
@@ -220,6 +325,8 @@ graph TB
     ART --> RPT
 ```
 
+For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ---
 
 ## Modules
@@ -242,7 +349,7 @@ Strategies for creating non-IID client data distributions.
 
 | Partitioner | Description |
 |-------------|-------------|
-| `DirichletLabelSkew` | Dirichlet-multinomial sampling for label skew: $p_k \sim \mathrm{Dirichlet}(\alpha \mathbf{1})$ |
+| `DirichletLabelSkew` | Dirichlet-multinomial sampling: $p_k \sim \mathrm{Dir}(\alpha \mathbf{1})$ |
 | `MoDM` | Mixture-of-Dirichlet-Multinomials for multimodal label skew |
 | `QuantitySkewPowerLaw` | Power-law client dataset sizes: $n_k \propto k^{-\gamma}$ |
 | `FeatureShiftClustering` | Client partitions by feature-space clustering |
@@ -258,7 +365,7 @@ Algorithms for combining client model updates.
 | `FedProx` | Proximal regularization: $\min_w F_k(w) + \frac{\mu}{2}\|w - w_g\|^2$ |
 | `FedDyn` | Dynamic regularization for improved convergence |
 | `FedSim` | Similarity-guided weighting using cosine similarity |
-| `pFedSim` | Personalized similarity-guided aggregation with decoupled heads |
+| `pFedSim` | Personalized similarity-guided aggregation |
 | `FedCM` | Client-level momentum correction |
 | `AFL_DCS` | Asynchronous FL with dynamic client scheduling |
 | `FedAdam` | Server-side Adam optimizer on aggregated updates |
@@ -269,8 +376,8 @@ Algorithms for combining client model updates.
 
 Quantifying heterogeneity and system performance.
 
-| Metric Category | Metrics |
-|-----------------|---------|
+| Category | Metrics |
+|----------|---------|
 | Distribution | EMD, KL Divergence, JS Divergence, Total Variation |
 | Label Analysis | Label Entropy, Imbalance Ratio, Effective Classes |
 | Representation | NMI, Centered Kernel Alignment |
@@ -306,6 +413,148 @@ Standardized experiment infrastructure.
 | `ConfigSchema` | Validated YAML/JSON configuration |
 | `Artifacts` | Structured result storage |
 | `Reports` | Human-readable Markdown reports |
+
+---
+
+## Partitioning Strategies
+
+### Dirichlet Label Skew
+
+```mermaid
+graph LR
+    A[Global Dataset] --> B[Dirichlet Sampling]
+    B --> C[Client 1: Class A heavy]
+    B --> D[Client 2: Class B heavy]
+    B --> E[Client 3: Class C heavy]
+    B --> F[Client N: Mixed]
+```
+
+**Mathematical Formulation:**
+
+For client $k$, sample class proportions from Dirichlet:
+
+$$p_k \sim \text{Dir}(\alpha \cdot \mathbf{1}_C)$$
+
+where $\alpha$ controls heterogeneity (lower = more heterogeneous).
+
+```python
+from unbitrium.partitioning import DirichletPartitioner
+
+partitioner = DirichletPartitioner(
+    num_clients=100,
+    alpha=0.5,  # Lower = more heterogeneous
+    seed=42,
+)
+client_indices = partitioner.partition(labels)
+```
+
+### Quantity Skew (Power-Law)
+
+Dataset sizes follow power-law distribution:
+
+$$n_k \propto k^{-\gamma}$$
+
+```python
+from unbitrium.partitioning import QuantitySkewPartitioner
+
+partitioner = QuantitySkewPartitioner(
+    num_clients=100,
+    power=1.5,
+    seed=42,
+)
+```
+
+---
+
+## Aggregation Algorithms
+
+### Algorithm Comparison
+
+```mermaid
+flowchart TD
+    subgraph "Standard"
+        FA[FedAvg]
+        FP[FedProx]
+    end
+
+    subgraph "Momentum-Based"
+        FD[FedDyn]
+        FC[FedCM]
+    end
+
+    subgraph "Similarity-Guided"
+        FS[FedSim]
+        PFS[pFedSim]
+    end
+
+    subgraph "Robust"
+        KR[Krum]
+        TM[Trimmed Mean]
+    end
+
+    subgraph "Adaptive"
+        FAD[FedAdam]
+        AFL[AFL-DCS]
+    end
+```
+
+### FedAvg
+
+```python
+from unbitrium.aggregators import FedAvg
+
+aggregator = FedAvg()
+new_model, metrics = aggregator.aggregate(updates, global_model)
+```
+
+### FedProx
+
+```python
+from unbitrium.aggregators import FedProx
+
+aggregator = FedProx(mu=0.1)  # Proximal coefficient
+```
+
+### Krum (Byzantine-Robust)
+
+```python
+from unbitrium.aggregators import Krum
+
+aggregator = Krum(num_byzantine=2, multi_krum=True)
+```
+
+---
+
+## Heterogeneity Metrics
+
+### Metric Overview
+
+| Metric | Range | Interpretation |
+|--------|-------|----------------|
+| EMD | [0, ∞) | Higher = more heterogeneous |
+| JS Divergence | [0, 1] | Higher = more heterogeneous |
+| Label Entropy | [0, 1] | Lower = more skewed |
+| Gradient Variance | [0, ∞) | Higher = more disagreement |
+
+### Usage
+
+```python
+from unbitrium.metrics import (
+    compute_emd,
+    compute_js_divergence,
+    compute_label_entropy,
+    compute_gradient_variance,
+)
+
+# Distribution metrics
+emd = compute_emd(labels, client_indices)
+js_div = compute_js_divergence(labels, client_indices)
+entropy = compute_label_entropy(labels, client_indices)
+
+print(f"EMD: {emd:.4f}")
+print(f"JS Divergence: {js_div:.4f}")
+print(f"Label Entropy: {entropy:.4f}")
+```
 
 ---
 
@@ -363,18 +612,20 @@ output:
 
 Comprehensive tutorials covering all aspects of Unbitrium:
 
-| Series | Topics |
-|--------|--------|
-| 001-010 | Non-IID Partitioning Strategies |
-| 011-020 | Heterogeneity Measurement |
-| 021-030 | Similarity-Guided Aggregation |
-| 031-040 | Momentum and Stability |
-| 041-050 | Asynchronous Scheduling |
-| 051-060 | Network Simulation |
-| 061-070 | Energy-Constrained Training |
-| 071-080 | Differential Privacy |
-| 081-090 | Benchmark Standardization |
-| 091-100+ | Custom Extensions |
+| Series | Topics | Count |
+|--------|--------|-------|
+| 001-010 | Non-IID Partitioning Strategies | 10 |
+| 011-020 | Heterogeneity Measurement | 10 |
+| 021-030 | Similarity-Guided Aggregation | 10 |
+| 031-040 | Momentum and Stability | 10 |
+| 041-050 | Asynchronous Scheduling | 10 |
+| 051-060 | Network Simulation | 10 |
+| 061-070 | Energy-Constrained Training | 10 |
+| 071-080 | Differential Privacy | 10 |
+| 081-090 | Benchmark Standardization | 10 |
+| 091-200 | Advanced Topics | 110 |
+
+**Total: 200 comprehensive tutorials**
 
 See the [tutorials directory](docs/tutorials/) for complete guides.
 
@@ -392,17 +643,81 @@ python -m unbitrium.bench.run --config benchmarks/standard.yaml
 python -m unbitrium.bench.report --input results/ --output report.md
 ```
 
+### Using Makefile
+
+```bash
+make benchmark       # Run benchmarks
+make benchmark-all   # Run full benchmark suite
+```
+
 ---
 
 ## API Reference
 
 Full API documentation is available at [https://olaflaitinen.github.io/unbitrium/](https://olaflaitinen.github.io/unbitrium/).
 
+### Quick Links
+
+| Module | Documentation |
+|--------|---------------|
+| Core | [docs/api/core.md](docs/api/core.md) |
+| Aggregators | [docs/api/aggregators.md](docs/api/aggregators.md) |
+| Partitioning | [docs/api/partitioning.md](docs/api/partitioning.md) |
+| Metrics | [docs/api/metrics.md](docs/api/metrics.md) |
+| Privacy | [docs/api/privacy.md](docs/api/privacy.md) |
+| Systems | [docs/api/systems.md](docs/api/systems.md) |
+
+---
+
+## Development
+
+### Setup Development Environment
+
+```bash
+git clone https://github.com/olaflaitinen/unbitrium.git
+cd unbitrium
+pip install -e ".[dev,docs]"
+pre-commit install
+```
+
+### Common Commands
+
+```bash
+make format      # Format code
+make lint        # Run linters
+make type-check  # Run mypy
+make test        # Run tests
+make test-cov    # Run tests with coverage
+make docs        # Build documentation
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development guidelines.
+
 ---
 
 ## Contributing
 
 We welcome contributions. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Quick Start for Contributors
+
+1. Fork the repository
+2. Create a feature branch
+3. Make changes with tests
+4. Submit a pull request
+
+See also:
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [GOVERNANCE.md](GOVERNANCE.md)
+- [STYLE.md](STYLE.md)
+
+---
+
+## Security
+
+For security vulnerabilities, please email oyli@dtu.dk directly. **Do NOT open public GitHub issues for security vulnerabilities.**
+
+See [SECURITY.md](SECURITY.md) for our full security policy.
 
 ---
 
@@ -418,12 +733,12 @@ If you use Unbitrium in your research, please cite:
 
 ```bibtex
 @software{unbitrium2026,
-  author       = {Laitinen Imanov, Olaf Yunus and Contributors},
-  title        = {Unbitrium: Federated Learning Simulator and Benchmarking Platform},
+  author       = {Laitinen Imanov, Olaf Yunus},
+  title        = {Unbitrium: Production-grade Federated Learning Simulator},
   year         = {2026},
   publisher    = {GitHub},
   url          = {https://github.com/olaflaitinen/unbitrium},
-  version      = {0.1.0}
+  version      = {1.0.0}
 }
 ```
 
@@ -433,7 +748,44 @@ See [CITATION.cff](CITATION.cff) for machine-readable citation metadata.
 
 ## Acknowledgments
 
+Unbitrium is developed at the Technical University of Denmark (DTU), Department of Applied Mathematics and Computer Science (DTU Compute), Section for Visual Computing.
+
 Unbitrium builds upon foundational research in federated learning. See [docs/references/bibliography.md](docs/references/bibliography.md) for a complete list of references.
+
+---
+
+## Repository Structure
+
+```
+unbitrium/
+├── src/unbitrium/        # Source code
+│   ├── aggregators/      # Aggregation algorithms
+│   ├── bench/            # Benchmarking infrastructure
+│   ├── core/             # Core simulation engine
+│   ├── datasets/         # Dataset loaders
+│   ├── metrics/          # Heterogeneity metrics
+│   ├── partitioning/     # Data partitioning
+│   ├── privacy/          # Privacy mechanisms
+│   ├── simulation/       # Client/server simulation
+│   └── systems/          # Device/network models
+├── tests/                # Test suite
+├── docs/                 # Documentation
+│   ├── tutorials/        # 200 tutorials
+│   ├── api/              # API reference
+│   └── validation/       # Validation reports
+├── benchmarks/           # Benchmark configurations
+├── examples/             # Example scripts
+└── .github/              # CI/CD workflows
+```
+
+---
+
+## Support
+
+- [Documentation](https://olaflaitinen.github.io/unbitrium/)
+- [GitHub Issues](https://github.com/olaflaitinen/unbitrium/issues)
+- [GitHub Discussions](https://github.com/olaflaitinen/unbitrium/discussions)
+- [SUPPORT.md](SUPPORT.md)
 
 ---
 
@@ -441,5 +793,5 @@ Unbitrium builds upon foundational research in federated learning. See [docs/ref
   <sub>Built with precision for reproducible federated learning research.</sub>
 </p>
 <p align="center">
-  <sub>Copyright 2026 Olaf Yunus Laitinen Imanov and Contributors. Released under EUPL 1.2.</sub>
+  <sub>Copyright 2026 Olaf Yunus Laitinen Imanov. Released under EUPL 1.2.</sub>
 </p>

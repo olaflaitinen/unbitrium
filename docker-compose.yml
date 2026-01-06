@@ -1,0 +1,118 @@
+# =============================================================================
+# Docker Compose Configuration
+# =============================================================================
+# Orchestrates Unbitrium services for local development and testing.
+#
+# Usage:
+#   docker compose up           # Start all services
+#   docker compose up -d        # Start in background
+#   docker compose down         # Stop all services
+#   docker compose logs -f      # View logs
+#
+# See: https://docs.docker.com/compose/
+# =============================================================================
+
+version: "3.9"
+
+services:
+  # ===========================================================================
+  # Unbitrium Core Service
+  # ===========================================================================
+  unbitrium:
+    build:
+      context: .
+      target: runtime
+    image: unbitrium:latest
+    container_name: unbitrium
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data:rw
+      - ./results:/app/results:rw
+      - ./configs:/app/configs:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    command: python -c "import unbitrium; print(f'Unbitrium {unbitrium.__version__}')"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import unbitrium"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================================================
+  # GPU-enabled Unbitrium
+  # ===========================================================================
+  unbitrium-gpu:
+    build:
+      context: .
+      target: gpu
+    image: unbitrium:gpu
+    container_name: unbitrium-gpu
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data:rw
+      - ./results:/app/results:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu
+
+  # ===========================================================================
+  # Development Service
+  # ===========================================================================
+  dev:
+    build:
+      context: .
+      target: development
+    image: unbitrium:dev
+    container_name: unbitrium-dev
+    volumes:
+      - .:/app:rw
+    working_dir: /app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    command: pytest -v
+    profiles:
+      - dev
+
+  # ===========================================================================
+  # Documentation Service
+  # ===========================================================================
+  docs:
+    image: python:3.12-slim
+    container_name: unbitrium-docs
+    volumes:
+      - .:/app:ro
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "pip install mkdocs mkdocs-material && mkdocs serve -a 0.0.0.0:8000"
+    profiles:
+      - docs
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  default:
+    name: unbitrium-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  data:
+    driver: local
+  results:
+    driver: local

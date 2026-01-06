@@ -1,22 +1,173 @@
+# =============================================================================
+# Linting Workflow
+# =============================================================================
+# Runs code quality checks including formatting, linting, and style validation.
+#
+# No secrets required.
+
 name: Lint
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: write
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  ruff:
+  # ===========================================================================
+  # Pre-commit Hooks
+  # ===========================================================================
+  pre-commit:
+    name: Pre-commit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-      - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --show-diff-on-failure
+
+  # ===========================================================================
+  # Black Formatting Check
+  # ===========================================================================
+  black:
+    name: Black
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Black
+        run: pip install black
+
+      - name: Run Black
+        run: black --check --diff src/ tests/
+
+  # ===========================================================================
+  # isort Import Sorting Check
+  # ===========================================================================
+  isort:
+    name: isort
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install isort
+        run: pip install isort
+
+      - name: Run isort
+        run: isort --check-only --diff src/ tests/
+
+  # ===========================================================================
+  # Ruff Linting
+  # ===========================================================================
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff
+        run: ruff check src/ tests/ --output-format=github
+
+  # ===========================================================================
+  # Bandit Security Check
+  # ===========================================================================
+  bandit:
+    name: Bandit Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Bandit
+        run: pip install "bandit[toml]"
+
+      - name: Run Bandit
+        run: bandit -r src/ -c pyproject.toml --format sarif --output bandit.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: bandit.sarif
+        continue-on-error: true
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+  lint-summary:
+    name: Lint Summary
+    runs-on: ubuntu-latest
+    needs: [pre-commit, black, isort, ruff, bandit]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.pre-commit.result }}" == "failure" ] || \
+             [ "${{ needs.black.result }}" == "failure" ] || \
+             [ "${{ needs.isort.result }}" == "failure" ] || \
+             [ "${{ needs.ruff.result }}" == "failure" ]; then
+            echo "Linting failed!"
+            exit 1
+          fi
+          echo "All lint checks passed!"

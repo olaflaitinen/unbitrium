@@ -1,0 +1,78 @@
+# =============================================================================
+# Stale Issues Workflow
+# =============================================================================
+# Automatically marks and closes stale issues and pull requests.
+#
+# No secrets required.
+
+name: Stale
+
+on:
+  schedule:
+    # Run daily at 1 AM UTC
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Close Stale Issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Stale Issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue configuration
+          stale-issue-message: |
+            This issue has been automatically marked as stale because it has not had
+            recent activity. It will be closed in 14 days if no further activity occurs.
+
+            If this issue is still relevant, please:
+            - Add a comment explaining the current status
+            - Add the "pinned" label to prevent auto-closing
+
+            Thank you for your contributions to Unbitrium.
+
+          close-issue-message: |
+            This issue has been automatically closed due to inactivity.
+
+            If you believe this issue is still valid, please open a new issue
+            with updated information. Thank you!
+
+          stale-issue-label: "stale"
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          exempt-issue-labels: "pinned,security,critical,in-progress,roadmap,help-wanted,good-first-issue"
+
+          # PR configuration
+          stale-pr-message: |
+            This pull request has been automatically marked as stale because it has not had
+            recent activity. It will be closed in 7 days if no further activity occurs.
+
+            If this PR is still a work in progress, please:
+            - Add a comment with an update
+            - Request a review
+            - Add the "in-progress" label
+
+          close-pr-message: |
+            This pull request has been automatically closed due to inactivity.
+
+            Feel free to reopen this PR or create a new one when ready.
+
+          stale-pr-label: "stale"
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          exempt-pr-labels: "pinned,in-progress"
+
+          # General configuration
+          operations-per-run: 100
+          ascending: true
+          remove-stale-when-updated: true
+          delete-branch: false

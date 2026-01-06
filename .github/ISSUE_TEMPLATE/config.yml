@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://olaflaitinen.github.io/unbitrium/
+    about: Check the documentation for guides and API reference
+  - name: Tutorials
+    url: https://olaflaitinen.github.io/unbitrium/tutorials/
+    about: Browse 200+ comprehensive tutorials
+  - name: Security Issues
+    url: https://github.com/olaflaitinen/unbitrium/blob/main/SECURITY.md
+    about: For security vulnerabilities, please email directly - do not open public issues

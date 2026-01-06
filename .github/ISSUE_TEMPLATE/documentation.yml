@@ -1,0 +1,75 @@
+---
+name: Documentation Issue
+description: Report an issue with documentation or suggest improvements
+title: "[DOCS]: "
+labels: ["documentation"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Unbitrium's documentation.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation Type
+      options:
+        - API Reference
+        - Tutorial
+        - Getting Started Guide
+        - README
+        - CONTRIBUTING Guide
+        - Other Root Documentation
+        - Architecture Documentation
+        - Inline Code Comments
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Document Location
+      description: URL or file path of the documentation
+      placeholder: "https://olaflaitinen.github.io/unbitrium/api/aggregators"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      options:
+        - Incorrect information
+        - Missing information
+        - Unclear explanation
+        - Typo or grammatical error
+        - Broken link
+        - Missing example
+        - Outdated content
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe the issue in detail
+      placeholder: What is wrong or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation?
+      placeholder: Your suggested changes
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a PR to fix this issue

@@ -1,0 +1,39 @@
+# =============================================================================
+# Release Drafter Workflow
+# =============================================================================
+# Automatically drafts release notes based on pull requests.
+#
+# No secrets required.
+#
+# See: https://github.com/release-drafter/release-drafter
+
+name: Release Drafter
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-release-draft:
+    name: Update Release Draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Run Release Drafter
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

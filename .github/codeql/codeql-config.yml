@@ -1,0 +1,30 @@
+# CodeQL Configuration
+# See: https://codeql.github.com/docs/codeql-cli/using-custom-queries-with-the-codeql-cli/
+
+name: "Unbitrium CodeQL Configuration"
+
+# Specify query paths
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Path filters
+paths:
+  - src
+  - tests
+
+paths-ignore:
+  - docs
+  - benchmarks
+  - examples
+  - "**/*.md"
+  - "**/*.yml"
+  - "**/*.yaml"
+  - "**/*.json"
+  - "**/*.txt"
+
+# Query filters
+query-filters:
+  # Exclude specific rules if needed
+  - exclude:
+      id: py/clear-text-logging-sensitive-data

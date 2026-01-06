@@ -1,0 +1,99 @@
+# Labeler Configuration
+# See: https://github.com/actions/labeler
+
+# Source code changes
+"component: aggregators":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/aggregators/**"
+
+"component: partitioning":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/partitioning/**"
+
+"component: metrics":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/metrics/**"
+
+"component: privacy":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/privacy/**"
+
+"component: core":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/core/**"
+
+"component: simulation":
+  - changed-files:
+      - any-glob-to-any-file: "src/unbitrium/simulation/**"
+
+"component: benchmarks":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "benchmarks/**"
+          - "src/unbitrium/bench/**"
+
+# Documentation
+"type: documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+          - "mkdocs.yml"
+
+# Testing
+"testing":
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+
+# CI/CD
+"ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".pre-commit-config.yaml"
+
+# Dependencies
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pyproject.toml"
+          - "requirements*.txt"
+
+# Configuration
+"configuration":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pyproject.toml"
+          - "mkdocs.yml"
+          - ".editorconfig"
+          - ".gitignore"
+          - ".gitattributes"
+
+# Size labels
+"size: small":
+  - changed-files:
+      - any-glob-to-any-file: "**/*"
+    all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - "**/*"
+          - at-most: 30
+
+"size: medium":
+  - changed-files:
+      - any-glob-to-any-file: "**/*"
+    all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - "**/*"
+          - at-least: 31
+          - at-most: 100
+
+"size: large":
+  - changed-files:
+      - any-glob-to-any-file: "**/*"
+    all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - "**/*"
+          - at-least: 101

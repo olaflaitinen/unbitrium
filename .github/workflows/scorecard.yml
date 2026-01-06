@@ -1,36 +1,64 @@
-name: OpenSSF Scorecard
+# =============================================================================
+# OSSF Scorecard Workflow
+# =============================================================================
+# Runs OpenSSF Scorecard security analysis.
+#
+# Required Secrets:
+#   - SCORECARD_TOKEN: Token for scorecard API (optional, uses GITHUB_TOKEN)
+#
+# See: https://securityscorecards.dev/
+
+name: Scorecard
 
 on:
-  branch_protection_rule:
-  schedule:
-    - cron: '30 0 * * 5'
   push:
     branches: ["main"]
+  schedule:
+    # Run weekly on Sunday at 3 AM UTC
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
 
 permissions: read-all
 
 jobs:
+  # ===========================================================================
+  # Scorecard Analysis
+  # ===========================================================================
   analysis:
-    name: Scorecard analysis
+    name: Scorecard Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     permissions:
       security-events: write
       id-token: write
+      contents: read
+      actions: read
 
     steps:
-      - name: "Checkout code"
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: "Run analysis"
-        uses: ossf/scorecard-action@v2.3.1
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@v2.4.0
         with:
           results_file: results.sarif
           results_format: sarif
+          # Publish results to OpenSSF REST API
           publish_results: true
+          # Token for scorecard API
+          repo_token: ${{ secrets.SCORECARD_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: "Upload to code-scanning"
+      - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+      - name: Upload Scorecard results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 30

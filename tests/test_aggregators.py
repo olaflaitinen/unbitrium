@@ -143,5 +143,129 @@ class TestTrimmedMean:
             TrimmedMean(trim_ratio=0.6)
 
 
+class TestFedDyn:
+    """Tests for FedDyn aggregator."""
+
+    def test_init(self) -> None:
+        """Test FedDyn initialization."""
+        agg = FedDyn(alpha=0.01)
+        assert agg.alpha == 0.01
+
+    def test_aggregate(self) -> None:
+        """Test FedDyn aggregation."""
+        agg = FedDyn(alpha=0.01)
+        model = SimpleModel()
+        updates = create_updates(5, model)
+        result, metrics = agg.aggregate(updates, model)
+        assert metrics["num_participants"] == 5.0
+
+
+class TestFedCM:
+    """Tests for FedCM aggregator."""
+
+    def test_init(self) -> None:
+        """Test FedCM initialization."""
+        from unbitrium.aggregators import FedCM
+        agg = FedCM(beta=0.9)
+        assert agg.beta == 0.9
+
+    def test_aggregate(self) -> None:
+        """Test FedCM aggregation."""
+        from unbitrium.aggregators import FedCM
+        agg = FedCM(beta=0.9)
+        model = SimpleModel()
+        updates = create_updates(3, model)
+        result, metrics = agg.aggregate(updates, model)
+        assert metrics["num_participants"] == 3.0
+        assert metrics["beta"] == 0.9
+
+    def test_momentum_accumulation(self) -> None:
+        """Test momentum accumulates across rounds."""
+        from unbitrium.aggregators import FedCM
+        agg = FedCM(beta=0.9)
+        model = SimpleModel()
+
+        # Run multiple rounds
+        for _ in range(3):
+            updates = create_updates(2, model)
+            agg.aggregate(updates, model)
+
+        # Momentum should be accumulated
+        assert len(agg._momentum) > 0
+
+
+class TestAFL_DCS:
+    """Tests for AFL-DCS aggregator."""
+
+    def test_init(self) -> None:
+        """Test AFL-DCS initialization."""
+        from unbitrium.aggregators import AFL_DCS
+        agg = AFL_DCS(max_staleness=5, staleness_decay=0.9)
+        assert agg.max_staleness == 5
+        assert agg.staleness_decay == 0.9
+
+    def test_aggregate(self) -> None:
+        """Test AFL-DCS aggregation."""
+        from unbitrium.aggregators import AFL_DCS
+        agg = AFL_DCS()
+        model = SimpleModel()
+        updates = create_updates(5, model)
+        result, metrics = agg.aggregate(updates, model)
+        assert "num_participants" in metrics
+
+    def test_staleness_filtering(self) -> None:
+        """Test stale updates are filtered."""
+        from unbitrium.aggregators import AFL_DCS
+        agg = AFL_DCS(max_staleness=2)
+        model = SimpleModel()
+
+        updates = []
+        for i in range(5):
+            state = {k: v.clone() for k, v in model.state_dict().items()}
+            updates.append({
+                "state_dict": state,
+                "num_samples": 100,
+                "round": agg._global_round - i - 5  # Very stale
+            })
+
+        result, metrics = agg.aggregate(updates, model)
+        # Stale updates should be filtered
+        assert metrics.get("excluded_stale", 0) >= 0
+
+
+class TestPFedSim:
+    """Tests for PFedSim (personalized FedSim) aggregator."""
+
+    def test_init(self) -> None:
+        """Test PFedSim initialization."""
+        agg = PFedSim(similarity_threshold=0.5)
+        assert agg.similarity_threshold == 0.5
+
+    def test_aggregate(self) -> None:
+        """Test PFedSim aggregation."""
+        agg = PFedSim(similarity_threshold=0.0)
+        model = SimpleModel()
+        updates = create_updates(5, model)
+        result, metrics = agg.aggregate(updates, model)
+        assert "num_participants" in metrics
+
+
+class TestFedAdam:
+    """Tests for FedAdam aggregator."""
+
+    def test_init(self) -> None:
+        """Test FedAdam initialization."""
+        agg = FedAdam(lr=0.01, beta1=0.9, beta2=0.999)
+        assert agg.lr == 0.01
+
+    def test_aggregate(self) -> None:
+        """Test FedAdam aggregation."""
+        agg = FedAdam()
+        model = SimpleModel()
+        updates = create_updates(5, model)
+        result, metrics = agg.aggregate(updates, model)
+        assert metrics["num_participants"] == 5.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

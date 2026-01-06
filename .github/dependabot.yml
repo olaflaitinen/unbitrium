@@ -1,0 +1,80 @@
+# Dependabot configuration for automated dependency updates
+# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+updates:
+  # Python dependencies (pip)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Copenhagen"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "olaflaitinen"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      development:
+        patterns:
+          - "pytest*"
+          - "black"
+          - "isort"
+          - "mypy"
+          - "ruff"
+          - "pre-commit"
+        update-types:
+          - "minor"
+          - "patch"
+      documentation:
+        patterns:
+          - "mkdocs*"
+        update-types:
+          - "minor"
+          - "patch"
+      pytorch:
+        patterns:
+          - "torch*"
+          - "opacus"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Copenhagen"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "olaflaitinen"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "olaflaitinen"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"

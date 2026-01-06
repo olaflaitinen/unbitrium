@@ -1,0 +1,88 @@
+# Release Drafter Configuration
+# See: https://github.com/release-drafter/release-drafter
+
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+categories:
+  - title: "Breaking Changes"
+    labels:
+      - "breaking-change"
+      - "major"
+
+  - title: "New Features"
+    labels:
+      - "enhancement"
+      - "feature"
+
+  - title: "Aggregators"
+    labels:
+      - "aggregators"
+
+  - title: "Partitioning"
+    labels:
+      - "partitioning"
+
+  - title: "Metrics"
+    labels:
+      - "metrics"
+
+  - title: "Privacy"
+    labels:
+      - "privacy"
+
+  - title: "Bug Fixes"
+    labels:
+      - "bug"
+      - "fix"
+
+  - title: "Performance Improvements"
+    labels:
+      - "performance"
+
+  - title: "Documentation"
+    labels:
+      - "documentation"
+
+  - title: "Dependencies"
+    labels:
+      - "dependencies"
+
+  - title: "Internal Changes"
+    labels:
+      - "refactoring"
+      - "testing"
+      - "ci"
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - "major"
+      - "breaking-change"
+  minor:
+    labels:
+      - "minor"
+      - "enhancement"
+      - "feature"
+  patch:
+    labels:
+      - "patch"
+      - "bug"
+      - "fix"
+  default: patch
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  ---
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

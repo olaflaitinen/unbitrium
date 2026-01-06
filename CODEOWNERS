@@ -1,10 +1,65 @@
-* @olaflaitinen
+# =============================================================================
+# CODEOWNERS
+# =============================================================================
+# This file defines who is responsible for code review in different parts
+# of the repository. These owners will be automatically requested for review
+# when pull requests modify their owned files.
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =============================================================================
 
-# Global owners
-* @olaflaitinen
+# =============================================================================
+# Global Owners
+# =============================================================================
+# Default owners for everything in the repository
+*                                       @olaflaitinen
 
+# =============================================================================
+# Core Components
+# =============================================================================
+/src/unbitrium/core/                    @olaflaitinen
+/src/unbitrium/aggregators/             @olaflaitinen
+/src/unbitrium/partitioning/            @olaflaitinen
+/src/unbitrium/metrics/                 @olaflaitinen
+/src/unbitrium/privacy/                 @olaflaitinen
+/src/unbitrium/simulation/              @olaflaitinen
+/src/unbitrium/systems/                 @olaflaitinen
+/src/unbitrium/bench/                   @olaflaitinen
+/src/unbitrium/datasets/                @olaflaitinen
+
+# =============================================================================
 # Documentation
-/docs/ @olaflaitinen
+# =============================================================================
+/docs/                                  @olaflaitinen
+*.md                                    @olaflaitinen
+/mkdocs.yml                             @olaflaitinen
 
-# Workflows
-/.github/ @olaflaitinen
+# =============================================================================
+# Testing
+# =============================================================================
+/tests/                                 @olaflaitinen
+/benchmarks/                            @olaflaitinen
+
+# =============================================================================
+# Configuration
+# =============================================================================
+/pyproject.toml                         @olaflaitinen
+/.pre-commit-config.yaml                @olaflaitinen
+/.editorconfig                          @olaflaitinen
+/.gitignore                             @olaflaitinen
+/.gitattributes                         @olaflaitinen
+/Makefile                               @olaflaitinen
+
+# =============================================================================
+# CI/CD and GitHub
+# =============================================================================
+/.github/                               @olaflaitinen
+/.github/workflows/                     @olaflaitinen
+/.github/ISSUE_TEMPLATE/                @olaflaitinen
+
+# =============================================================================
+# Security-sensitive Files
+# =============================================================================
+/SECURITY.md                            @olaflaitinen
+/.github/dependabot.yml                 @olaflaitinen
+/.github/codeql/                        @olaflaitinen

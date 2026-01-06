@@ -1,8 +1,16 @@
+# =============================================================================
 # Python
+# =============================================================================
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -22,14 +30,99 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# PyTorch
-*.pt
-*.pth
+# PyInstaller
+*.manifest
+*.spec
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Environments
+# =============================================================================
+# Testing
+# =============================================================================
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# =============================================================================
+# Type Checking and Linting
+# =============================================================================
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Pyre
+.pyre/
+
+# pytype
+.pytype/
+
+# =============================================================================
+# IDEs and Editors
+# =============================================================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================================================================
+# Virtual Environments
+# =============================================================================
+
 .env
 .venv
 env/
@@ -37,25 +130,123 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.python-version
+Pipfile.lock
 
-# IDEs
-.vscode/
-.idea/
+# =============================================================================
+# Jupyter Notebooks
+# =============================================================================
 
-# Testing
-.coverage
-.coverage.*
-htmlcov/
-.pytest_cache/
-.hypothesis/
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
 
+# =============================================================================
+# Machine Learning / PyTorch
+# =============================================================================
+
+# Model files
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# Logs
+runs/
+logs/
+lightning_logs/
+wandb/
+mlruns/
+*.tfevents.*
+
+# Large data files
+*.h5
+*.hdf5
+*.parquet
+*.feather
+
+# =============================================================================
 # Documentation
+# =============================================================================
+
+# mkdocs / Sphinx
 site/
+docs/_build/
+docs/api/_autosummary/
 
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# =============================================================================
+# Operating System
+# =============================================================================
 
-# Ruff
-.ruff_cache/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# =============================================================================
+# Secrets and Credentials
+# =============================================================================
+
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+credentials/
+.secrets
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Archives
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# Benchmarks outputs
+results/
+outputs/
+artifacts/
+
+# Local configuration
+local.yaml
+local.yml
+*.local.yaml

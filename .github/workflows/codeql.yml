@@ -1,4 +1,13 @@
-name: "CodeQL"
+# =============================================================================
+# CodeQL Analysis Workflow
+# =============================================================================
+# Performs security analysis using GitHub CodeQL.
+#
+# No secrets required - uses built-in GITHUB_TOKEN.
+#
+# See: https://docs.github.com/en/code-security/code-scanning
+
+name: CodeQL
 
 on:
   push:
@@ -6,40 +15,50 @@ on:
   pull_request:
     branches: ["main"]
   schedule:
-    - cron: '21 16 * * 5'
+    # Run weekly on Sunday at midnight
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
 
 permissions:
   actions: read
   contents: read
   security-events: write
 
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # ===========================================================================
+  # CodeQL Analysis
+  # ===========================================================================
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'python' ]
+        language: ["python"]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # If you wish to specify custom queries, you can do so here
+          # queries: security-extended,security-and-quality
+          config-file: .github/codeql/codeql-config.yml
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:${{matrix.language}}"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true

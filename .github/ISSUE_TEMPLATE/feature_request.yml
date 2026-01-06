@@ -1,0 +1,113 @@
+---
+name: Feature Request
+description: Suggest a new feature or enhancement for Unbitrium
+title: "[FEATURE]: "
+labels: ["enhancement", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature. Please fill out the form below to help us understand your request.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have checked the roadmap and this feature is not planned
+          required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Feature Type
+      options:
+        - New Aggregation Algorithm
+        - New Partitioning Strategy
+        - New Metric
+        - Privacy Enhancement
+        - Performance Improvement
+        - Developer Experience
+        - Documentation
+        - Testing
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is this related to a frustration?
+      placeholder: A clear description of the problem or use case
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like
+      placeholder: A clear description of what you want to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered
+      placeholder: Alternative approaches
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Proposed API
+      description: If applicable, provide a proposed API design
+      render: python
+      placeholder: |
+        # Example API usage
+        from unbitrium import NewFeature
+
+        feature = NewFeature(param=value)
+        result = feature.process(data)
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Links to papers, implementations, or related issues
+      placeholder: |
+        - Paper: https://arxiv.org/abs/...
+        - Implementation: https://github.com/...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would improve my workflow
+        - High - Essential for my use case
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to contribute a PR for this feature
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the feature request
+      placeholder: Screenshots, mockups, etc.

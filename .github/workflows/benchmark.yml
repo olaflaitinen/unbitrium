@@ -1,32 +1,125 @@
+# =============================================================================
+# Benchmark Workflow
+# =============================================================================
+# Runs performance benchmarks and tracks metrics over time.
+#
+# No secrets required for basic benchmarking.
+
 name: Benchmark
 
 on:
   push:
     branches: ["main"]
+    paths:
+      - "src/**"
+      - "benchmarks/**"
   pull_request:
     branches: ["main"]
+    paths:
+      - "src/**"
+      - "benchmarks/**"
+  workflow_dispatch:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: "0 2 * * *"
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ===========================================================================
+  # Performance Benchmarks
+  # ===========================================================================
   benchmark:
-    name: Run Standard Benchmarks
+    name: Run Benchmarks
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 60
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          python-version: "3.10"
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-benchmark
+
+      - name: Run benchmarks
+        run: |
+          pytest benchmarks/ \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-autosave \
+            -v
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: Unbitrium Performance Benchmarks
+          tool: "pytest"
+          output-file-path: benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@olaflaitinen"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmark-results.json
+            .benchmarks/
+          retention-days: 30
+
+  # ===========================================================================
+  # Aggregator Benchmarks
+  # ===========================================================================
+  aggregator-benchmark:
+    name: Aggregator Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
 
-      - name: Run benchmarks
+      - name: Run aggregator benchmarks
         run: |
-          # Placeholder for benchmark run command
-          python -c "print('Running standard benchmarks...')"
-          # In real usage: python -m unbitrium.bench.run --config benchmarks/standard.yaml
+          python benchmarks/run_benchmark.py \
+            --config benchmarks/configs/aggregators.yaml \
+            --output results/aggregator-benchmark.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: aggregator-benchmark-results
+          path: results/
+          retention-days: 30

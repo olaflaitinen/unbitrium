@@ -1,0 +1,52 @@
+# Stale Issue and PR Management
+# See: https://github.com/actions/stale
+
+# Number of days of inactivity before an issue/PR becomes stale
+daysUntilStale: 60
+
+# Number of days of inactivity before a stale issue/PR is closed
+daysUntilClose: 14
+
+# Issues with these labels will never be considered stale
+exemptLabels:
+  - "pinned"
+  - "security"
+  - "critical"
+  - "in-progress"
+  - "roadmap"
+  - "help-wanted"
+  - "good-first-issue"
+
+# Label to apply when marking as stale
+staleLabel: "stale"
+
+# Comment to post when marking an issue as stale
+markComment: >
+  This issue has been automatically marked as stale because it has not had
+  recent activity. It will be closed if no further activity occurs within
+  14 days. Thank you for your contributions to Unbitrium.
+
+# Comment to post when closing a stale issue
+closeComment: >
+  This issue has been automatically closed due to inactivity. If you believe
+  this was closed in error, please open a new issue with updated information.
+
+# Comment to post when unmarking a stale issue
+unmarkComment: >
+  This issue is no longer marked as stale. Thank you for your continued
+  engagement with Unbitrium.
+
+# Limit the number of actions per run
+operationsPerRun: 50
+
+# Only process issues (not PRs)
+only: issues
+
+# Remove stale label when an issue is updated
+removeStaleWhenUpdated: true
+
+# Do not add stale label to issues with milestones
+exemptMilestones: true
+
+# Do not add stale label to issues assigned to someone
+exemptAssignees: true

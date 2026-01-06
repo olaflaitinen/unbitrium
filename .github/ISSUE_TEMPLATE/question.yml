@@ -1,0 +1,68 @@
+---
+name: Question
+description: Ask a question about using Unbitrium
+title: "[QUESTION]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking a question, please check:
+        - [Documentation](https://olaflaitinen.github.io/unbitrium/)
+        - [Tutorials](https://olaflaitinen.github.io/unbitrium/tutorials/)
+        - [Existing Issues](https://github.com/olaflaitinen/unbitrium/issues)
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched the documentation
+          required: true
+        - label: I have searched existing issues
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      options:
+        - Installation / Setup
+        - Usage / API
+        - Custom Implementation
+        - Performance
+        - Privacy / Security
+        - Best Practices
+        - Research / Methodology
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Describe your question in detail
+      placeholder: What would you like to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context
+      placeholder: What are you trying to achieve?
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Relevant Code
+      description: If applicable, provide relevant code
+      render: python
+      placeholder: |
+        from unbitrium import ...
+
+        # Your code here
