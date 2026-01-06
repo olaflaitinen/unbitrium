@@ -112,7 +112,7 @@ CMD ["pytest", "-v"]
 # Stage 4: GPU Runtime (optional)
 # -----------------------------------------------------------------------------
 # nvidia/cuda:12.1-runtime-ubuntu22.04 pinned to specific digest
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04@sha256:bf1e47d5e4c0c92cac3587143b247a7c3e0a3b2e87a9d5ec6aabae3cbbd59c2b AS gpu
+FROM nvidia/cuda:13.1.0-runtime-ubuntu22.04@sha256:3efb18187a0ce6bdfc287b440ca90a35a73d03ff1cde1475048ab915085fb2c4 AS gpu
 
 # Labels
 LABEL org.opencontainers.image.title="Unbitrium GPU" \
