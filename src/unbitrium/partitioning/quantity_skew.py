@@ -84,3 +84,8 @@ class QuantitySkewPartitioner(Partitioner):
             curr += count
 
         return client_indices
+
+
+# Alias for backward compatibility
+QuantitySkewPowerLaw = QuantitySkewPartitioner
+
