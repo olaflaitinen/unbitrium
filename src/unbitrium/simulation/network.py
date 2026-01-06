@@ -8,9 +8,34 @@ License: EUPL-1.2
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+
+
+@dataclass
+class NetworkConfig:
+    """Network configuration for simulation.
+
+    Args:
+        latency_mean: Mean latency in milliseconds.
+        latency_std: Latency standard deviation.
+        packet_loss_rate: Probability of packet loss [0, 1].
+        bandwidth_mbps: Bandwidth in Mbps.
+    """
+    latency_mean: float = 100.0
+    latency_std: float = 20.0
+    packet_loss_rate: float = 0.0
+    bandwidth_mbps: float = 10.0
+
+    def simulate_latency(self) -> float:
+        """Simulate latency based on config."""
+        return max(0, np.random.normal(self.latency_mean, self.latency_std))
+
+    def simulate_packet_loss(self) -> bool:
+        """Simulate packet loss."""
+        return np.random.random() < self.packet_loss_rate
 
 
 class Network:
