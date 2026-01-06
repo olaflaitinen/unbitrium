@@ -115,7 +115,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage to Code Climate
-        uses: paambaati/codeclimate-action@v6
+        uses: paambaati/codeclimate-action@v9
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_TOKEN }}
