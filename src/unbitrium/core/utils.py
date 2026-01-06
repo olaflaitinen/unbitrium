@@ -21,16 +21,26 @@ import numpy as np
 import torch
 
 
-def setup_logging(level: int = logging.INFO) -> None:
+def setup_logging(
+    level: int = logging.INFO,
+    name: str = "unbitrium",
+) -> logging.Logger:
     """Configure logging for Unbitrium.
 
     Args:
         level: Logging level (default: INFO).
+        name: Logger name (default: 'unbitrium').
+
+    Returns:
+        Configured logger instance.
     """
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         level=level,
     )
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    return logger
 
 
 def set_seed(seed: int) -> None:
@@ -67,10 +77,15 @@ def get_provenance_info() -> dict[str, Any]:
         Dictionary containing git commit, Python version, library versions,
         hardware info, and environment details.
     """
+    from datetime import datetime
+
     info: dict[str, Any] = {
+        "timestamp": datetime.utcnow().isoformat(),
         "python_version": sys.version,
         "platform": platform.platform(),
         "processor": platform.processor(),
+        "hostname": platform.node(),
+        "machine": platform.machine(),
         "torch_version": torch.__version__,
         "numpy_version": np.__version__,
         "cuda_available": torch.cuda.is_available(),

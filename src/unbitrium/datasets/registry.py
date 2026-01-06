@@ -71,6 +71,17 @@ class DatasetRegistry:
         """
         return list(cls._registry.keys())
 
+    @classmethod
+    def available(cls) -> list[str]:
+        """Return list of available dataset names.
+
+        Alias for list_datasets() for backward compatibility.
+
+        Returns:
+            List of dataset names.
+        """
+        return cls.list_datasets()
+
 
 # Convenience functions
 def register_dataset(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
