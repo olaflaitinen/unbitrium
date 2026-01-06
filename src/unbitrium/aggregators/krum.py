@@ -99,10 +99,10 @@ class Krum(Aggregator):
             scores.append(nearest.sum().item())
 
         # Select top updates
-        _, selected_indices = torch.topk(
+        _, indices_tensor = torch.topk(
             torch.tensor(scores), self.multi_krum, largest=False
         )
-        selected_indices = selected_indices.tolist()
+        selected_indices: list[int] = indices_tensor.tolist()
 
         # Average selected updates
         selected_updates = [updates[i] for i in selected_indices]

@@ -123,6 +123,9 @@ class FedYogi(FedOpt):
             if isinstance(global_state[key], torch.Tensor) and key in avg_update:
                 delta = avg_update[key] - global_state[key].float()
 
+                # Ensure momentum buffers are initialized
+                assert self._m is not None and self._v is not None
+
                 # Update first moment
                 self._m[key] = self.beta1 * self._m[key] + (1 - self.beta1) * delta
 
@@ -159,6 +162,9 @@ class FedAdagrad(FedOpt):
         for key in global_state.keys():
             if isinstance(global_state[key], torch.Tensor) and key in avg_update:
                 delta = avg_update[key] - global_state[key].float()
+
+                # Ensure momentum buffers are initialized
+                assert self._v is not None
 
                 # Accumulate squared gradient
                 self._v[key] = self._v[key] + delta**2

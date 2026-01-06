@@ -141,9 +141,10 @@ class Simulator:
         for round_idx in range(num_rounds):
             # Select participating clients
             num_selected = max(1, int(len(self.clients) * self.participation_rate))
-            selected = self.rng.choice(
-                self.clients, size=num_selected, replace=False
-            ).tolist()
+            client_indices = self.rng.choice(
+                len(self.clients), size=num_selected, replace=False
+            )
+            selected = [self.clients[i] for i in client_indices]
 
             # Get global state
             global_state = self.server.get_global_state()
@@ -262,7 +263,8 @@ class FederatedSimulator:
                 )
 
             # Aggregate updates
-            global_state = self.aggregator.aggregate(updates)
+            new_model, _agg_metrics = self.aggregator.aggregate(updates, self.model)
+            global_state = new_model.state_dict()
             self.model.load_state_dict(global_state)
 
             # Evaluate

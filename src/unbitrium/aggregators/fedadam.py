@@ -123,6 +123,9 @@ class FedAdam(Aggregator):
                 # Pseudo-gradient (delta from global)
                 delta = avg_update[key] - global_state[key].float()
 
+                # Ensure momentum buffers are initialized
+                assert self._m is not None and self._v is not None
+
                 # Update moments
                 self._m[key] = self.beta1 * self._m[key] + (1 - self.beta1) * delta
                 self._v[key] = self.beta2 * self._v[key] + (1 - self.beta2) * (delta**2)

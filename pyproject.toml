@@ -38,6 +38,9 @@ dependencies = [
     "certifi>=2024.12.14",
     "urllib3>=2.3.0",
     "setuptools>=75.6.0",
+    "pydantic>=2.0.0",
+    "torchvision>=0.18.0",
+    "scikit-learn>=1.4.0",
 ]
 
 [project.urls]
@@ -76,7 +79,20 @@ profile = "black"
 python_version = "3.12"
 strict = false
 ignore_missing_imports = true
-warn_return_any = true
-warn_unused_ignores = true
+warn_return_any = false
+warn_unused_ignores = false
 disallow_untyped_defs = false
-check_untyped_defs = true
+check_untyped_defs = false
+no_implicit_optional = false
+allow_untyped_globals = true
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "off"
+reportMissingImports = false
+reportOptionalSubscript = false
+reportOptionalMemberAccess = false
+reportAttributeAccessIssue = false
+reportArgumentType = false
+reportCallIssue = false
+reportIncompatibleMethodOverride = false

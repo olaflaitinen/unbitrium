@@ -31,11 +31,11 @@ class NetworkConfig:
 
     def simulate_latency(self) -> float:
         """Simulate latency based on config."""
-        return max(0, np.random.normal(self.latency_mean, self.latency_std))
+        return float(max(0, np.random.normal(self.latency_mean, self.latency_std)))
 
     def simulate_packet_loss(self) -> bool:
         """Simulate packet loss."""
-        return np.random.random() < self.packet_loss_rate
+        return bool(np.random.random() < self.packet_loss_rate)
 
 
 class Network:
@@ -99,7 +99,7 @@ class Network:
         bandwidth_bps = self.bandwidths[client_id] * 1e6 / 8  # Convert Mbps to bytes/s
         latency_s = self.latencies[client_id] / 1000  # Convert ms to seconds
 
-        return latency_s + size_bytes / bandwidth_bps
+        return float(latency_s + size_bytes / bandwidth_bps)
 
     def is_message_dropped(self, client_id: int) -> bool:
         """Check if a message should be dropped.
@@ -110,7 +110,7 @@ class Network:
         Returns:
             True if message should be dropped.
         """
-        return self.rng.random() < self.drop_rate
+        return bool(self.rng.random() < self.drop_rate)
 
     def simulate_round_delays(
         self,

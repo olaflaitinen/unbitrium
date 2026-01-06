@@ -99,15 +99,15 @@ def detect_outliers(
                 total_norm += torch.sum(value.float() ** 2).item()
         norms.append(np.sqrt(total_norm))
 
-    norms = np.array(norms)
-    mean_norm = np.mean(norms)
-    std_norm = np.std(norms)
+    norms_arr = np.array(norms)
+    mean_norm = float(np.mean(norms_arr))
+    std_norm = float(np.std(norms_arr))
 
     if std_norm < 1e-10:
         return []
 
     outliers = []
-    for i, norm in enumerate(norms):
+    for i, norm in enumerate(norms_arr):
         if abs(norm - mean_norm) > threshold * std_norm:
             outliers.append(i)
 
