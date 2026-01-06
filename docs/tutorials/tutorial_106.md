@@ -89,28 +89,28 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AsyncConfig:
     """Async FL configuration."""
-    
+
     num_updates: int = 200
     num_clients: int = 20
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 2
-    
+
     # Async params
     max_staleness: int = 10
     staleness_weight_decay: float = 0.5
-    
+
     seed: int = 42
 
 
 class Update:
     """Client update with staleness info."""
-    
+
     def __init__(
         self,
         state_dict: Dict[str, torch.Tensor],
@@ -123,7 +123,7 @@ class Update:
         self.base_version = base_version
         self.num_samples = num_samples
         self.timestamp = time.time()
-    
+
     def staleness(self, current_version: int) -> int:
         return current_version - self.base_version
 
@@ -135,7 +135,7 @@ class AsyncDataset(Dataset):
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self): return len(self.y)
     def __getitem__(self, idx): return self.x[idx], self.y[idx]
 
@@ -148,30 +148,30 @@ class AsyncModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
 class AsyncClient:
     """Async FL client."""
-    
+
     def __init__(self, client_id: int, dataset: AsyncDataset, config: AsyncConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-        
+
         # Simulate variable training time
         self.speed_factor = np.random.uniform(0.5, 2.0)
-    
+
     def train(self, model: nn.Module, current_version: int) -> Update:
         """Train and return update."""
         # Simulate latency
         time.sleep(0.001 * self.speed_factor)
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -179,7 +179,7 @@ class AsyncClient:
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-        
+
         return Update(
             state_dict={k: v.cpu() for k, v in local.state_dict().items()},
             client_id=self.client_id,
@@ -190,21 +190,21 @@ class AsyncClient:
 
 class AsyncAggregator:
     """Async update aggregator."""
-    
+
     def __init__(self, config: AsyncConfig):
         self.config = config
-    
+
     def compute_weight(self, update: Update, current_version: int) -> float:
         """Compute update weight based on staleness."""
         staleness = update.staleness(current_version)
-        
+
         if staleness > self.config.max_staleness:
             return 0.0
-        
+
         # Exponential decay with staleness
         weight = (self.config.staleness_weight_decay ** staleness)
         return weight * update.num_samples
-    
+
     def aggregate(
         self,
         model_state: Dict[str, torch.Tensor],
@@ -213,33 +213,33 @@ class AsyncAggregator:
     ) -> Dict[str, torch.Tensor]:
         """Aggregate single update into model."""
         weight = self.compute_weight(update, current_version)
-        
+
         if weight <= 0:
             return model_state
-        
+
         # Mixing rate
         alpha = weight / (weight + 100)  # Damping factor
-        
+
         new_state = {}
         for key in model_state:
             new_state[key] = (1 - alpha) * model_state[key] + alpha * update.state_dict[key]
-        
+
         return new_state
 
 
 class AsyncServer:
     """Async FL server."""
-    
+
     def __init__(self, model: nn.Module, clients: List[AsyncClient], test_data: AsyncDataset, config: AsyncConfig):
         self.model = model
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.aggregator = AsyncAggregator(config)
         self.version = 0
         self.history: List[Dict] = []
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
@@ -250,18 +250,18 @@ class AsyncServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         logger.info("Starting async FL")
-        
+
         updates_processed = 0
-        
+
         while updates_processed < self.config.num_updates:
             # Randomly select a client to complete
             client = np.random.choice(self.clients)
-            
+
             update = client.train(self.model, self.version)
-            
+
             # Aggregate update
             new_state = self.aggregator.aggregate(
                 self.model.state_dict(),
@@ -269,15 +269,15 @@ class AsyncServer:
                 self.version
             )
             self.model.load_state_dict(new_state)
-            
+
             self.version += 1
             updates_processed += 1
-            
+
             # Log periodically
             if updates_processed % 20 == 0:
                 metrics = self.evaluate()
                 staleness = update.staleness(self.version)
-                
+
                 record = {
                     "update": updates_processed,
                     "version": self.version,
@@ -285,9 +285,9 @@ class AsyncServer:
                     **metrics
                 }
                 self.history.append(record)
-                
+
                 logger.info(f"Update {updates_processed}: acc={metrics['accuracy']:.4f}")
-        
+
         return self.history
 
 
@@ -295,18 +295,18 @@ def main():
     print("=" * 60)
     print("Tutorial 106: FL Async Training")
     print("=" * 60)
-    
+
     config = AsyncConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     clients = [AsyncClient(i, AsyncDataset(seed=config.seed + i), config) for i in range(config.num_clients)]
     test_data = AsyncDataset(seed=999)
     model = AsyncModel(config)
-    
+
     server = AsyncServer(model, clients, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Async Training Complete")
     print(f"Final accuracy: {history[-1]['accuracy']:.4f}")

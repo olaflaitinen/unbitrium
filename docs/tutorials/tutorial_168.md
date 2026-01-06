@@ -122,33 +122,33 @@ class OptimizerType(Enum):
 @dataclass
 class AdvOptConfig:
     """Configuration for advanced optimization."""
-    
+
     num_rounds: int = 50
     num_clients: int = 20
     clients_per_round: int = 10
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 5
-    
+
     # Optimizer-specific
     optimizer_type: OptimizerType = OptimizerType.SCAFFOLD
     fedprox_mu: float = 0.01
     server_lr: float = 1.0
-    
+
     # Non-IID
     dirichlet_alpha: float = 0.5
-    
+
     seed: int = 42
 
 
 class OptDataset(Dataset):
     """Dataset with configurable heterogeneity."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -159,29 +159,29 @@ class OptDataset(Dataset):
         class_probs: Optional[np.ndarray] = None
     ):
         np.random.seed(seed + client_id)
-        
+
         if class_probs is None:
             class_probs = np.ones(classes) / classes
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.tensor(
             np.random.choice(classes, n, p=class_probs),
             dtype=torch.long
         )
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class OptModel(nn.Module):
     """Standard model for optimization testing."""
-    
+
     def __init__(self, config: AdvOptConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -191,7 +191,7 @@ class OptModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
@@ -202,7 +202,7 @@ class OptModel(nn.Module):
 
 class BaseClient(ABC):
     """Base client class."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -212,7 +212,7 @@ class BaseClient(ABC):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     @abstractmethod
     def train(self, model: nn.Module, **kwargs) -> Dict[str, Any]:
         pass
@@ -220,34 +220,34 @@ class BaseClient(ABC):
 
 class FedAvgClient(BaseClient):
     """Standard FedAvg client."""
-    
+
     def train(self, model: nn.Module, **kwargs) -> Dict[str, Any]:
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -257,50 +257,50 @@ class FedAvgClient(BaseClient):
 
 class FedProxClient(BaseClient):
     """FedProx client with proximal term."""
-    
+
     def train(self, model: nn.Module, **kwargs) -> Dict[str, Any]:
         local = copy.deepcopy(model)
         global_params = {
             k: v.clone() for k, v in model.state_dict().items()
         }
-        
+
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         mu = self.config.fedprox_mu
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
-                
+
                 # Standard loss
                 loss = F.cross_entropy(local(x), y)
-                
+
                 # Proximal term
                 prox_term = 0.0
                 for name, param in local.named_parameters():
                     prox_term += ((param - global_params[name].detach()) ** 2).sum()
-                
+
                 loss = loss + (mu / 2) * prox_term
-                
+
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -310,7 +310,7 @@ class FedProxClient(BaseClient):
 
 class SCAFFOLDClient(BaseClient):
     """SCAFFOLD client with control variates."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -319,7 +319,7 @@ class SCAFFOLDClient(BaseClient):
     ):
         super().__init__(client_id, dataset, config)
         self.c_local: Optional[Dict[str, torch.Tensor]] = None
-    
+
     def train(
         self,
         model: nn.Module,
@@ -328,7 +328,7 @@ class SCAFFOLDClient(BaseClient):
     ) -> Dict[str, Any]:
         local = copy.deepcopy(model)
         global_state = {k: v.clone() for k, v in model.state_dict().items()}
-        
+
         # Initialize control variates if needed
         if self.c_local is None:
             self.c_local = {
@@ -338,42 +338,42 @@ class SCAFFOLDClient(BaseClient):
             c_global = {
                 k: torch.zeros_like(v) for k, v in model.state_dict().items()
             }
-        
+
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
         total_steps = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
-                
+
                 # Apply control variate correction
                 with torch.no_grad():
                     for name, param in local.named_parameters():
                         if param.grad is not None:
                             correction = c_global[name] - self.c_local[name]
                             param.grad.add_(correction)
-                
+
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
                 total_steps += 1
-        
+
         # Update local control variate
         c_local_new = {}
         with torch.no_grad():
@@ -381,15 +381,15 @@ class SCAFFOLDClient(BaseClient):
                 c_local_new[name] = self.c_local[name] - c_global[name] + (
                     global_state[name] - param.data
                 ) / (total_steps * self.config.learning_rate)
-        
+
         # Compute delta c
         delta_c = {
             name: c_local_new[name] - self.c_local[name]
             for name in c_local_new
         }
-        
+
         self.c_local = c_local_new
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "delta_c": delta_c,
@@ -400,44 +400,44 @@ class SCAFFOLDClient(BaseClient):
 
 class FedNovaClient(BaseClient):
     """FedNova client with normalized averaging."""
-    
+
     def train(self, model: nn.Module, **kwargs) -> Dict[str, Any]:
         local = copy.deepcopy(model)
         initial_state = {k: v.clone() for k, v in model.state_dict().items()}
-        
+
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
         total_steps = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
                 total_steps += 1
-        
+
         # Compute normalized update
         with torch.no_grad():
             delta = {}
             for name, param in local.named_parameters():
                 delta[name] = (initial_state[name] - param.data) / total_steps
-        
+
         return {
             "delta": delta,
             "tau": total_steps,  # Normalization factor
@@ -452,7 +452,7 @@ class FedNovaClient(BaseClient):
 
 class FedServer:
     """Server with multiple aggregation strategies."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -464,36 +464,36 @@ class FedServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         # SCAFFOLD control variate
         self.c_global: Dict[str, torch.Tensor] = {
             k: torch.zeros_like(v) for k, v in model.state_dict().items()
         }
-        
+
         # Server optimizer state (for FedAdam)
         self.m = {k: torch.zeros_like(v) for k, v in model.state_dict().items()}
         self.v = {k: torch.zeros_like(v) for k, v in model.state_dict().items()}
         self.t = 0
-        
+
         self.history: List[Dict] = []
-    
+
     def aggregate_fedavg(self, updates: List[Dict]) -> None:
         """Standard FedAvg aggregation."""
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def aggregate_scaffold(self, updates: List[Dict]) -> None:
         """SCAFFOLD aggregation with control variate updates."""
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         # Aggregate model updates
         new_state = {}
         for key in updates[0]["state_dict"]:
@@ -502,7 +502,7 @@ class FedServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-        
+
         # Update global control variate
         n_clients = len(self.clients)
         for key in self.c_global:
@@ -510,11 +510,11 @@ class FedServer:
                 u["delta_c"][key].float() for u in updates
             )
             self.c_global[key] += (len(updates) / n_clients) * delta_c_sum
-    
+
     def aggregate_fednova(self, updates: List[Dict]) -> None:
         """FedNova normalized aggregation."""
         total_tau = sum(u["tau"] for u in updates)
-        
+
         with torch.no_grad():
             for name, param in self.model.named_parameters():
                 delta = sum(
@@ -522,70 +522,70 @@ class FedServer:
                     for u in updates
                 )
                 param.data -= self.config.server_lr * delta
-    
+
     def aggregate_fedadam(self, updates: List[Dict]) -> None:
         """FedAdam with server-side Adam."""
         total_samples = sum(u["num_samples"] for u in updates)
         self.t += 1
-        
+
         # Compute pseudo-gradient
         current = self.model.state_dict()
         avg_update = {}
-        
+
         for key in updates[0]["state_dict"]:
             avg = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
             avg_update[key] = current[key] - avg
-        
+
         # Apply Adam update
         beta1, beta2 = 0.9, 0.99
         eps = 1e-8
-        
+
         new_state = {}
         for key in current:
             self.m[key] = beta1 * self.m[key] + (1 - beta1) * avg_update[key]
             self.v[key] = beta2 * self.v[key] + (1 - beta2) * (avg_update[key] ** 2)
-            
+
             m_hat = self.m[key] / (1 - beta1 ** self.t)
             v_hat = self.v[key] / (1 - beta2 ** self.t)
-            
+
             new_state[key] = current[key] - self.config.server_lr * m_hat / (torch.sqrt(v_hat) + eps)
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x)
                 loss = F.cross_entropy(output, y)
                 pred = output.argmax(dim=1)
-                
+
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += loss.item() * len(y)
-        
+
         return {"accuracy": correct / total, "loss": total_loss / total}
-    
+
     def train(self) -> List[Dict]:
         """Run training with selected optimizer."""
         opt_type = self.config.optimizer_type
         logger.info(f"Starting FL with {opt_type.value}")
-        
+
         for round_num in range(self.config.num_rounds):
             # Select clients
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             # Collect updates
             updates = []
             for client in selected:
@@ -594,7 +594,7 @@ class FedServer:
                 else:
                     update = client.train(self.model)
                 updates.append(update)
-            
+
             # Aggregate
             if opt_type == OptimizerType.FEDAVG or opt_type == OptimizerType.FEDPROX:
                 self.aggregate_fedavg(updates)
@@ -604,16 +604,16 @@ class FedServer:
                 self.aggregate_fednova(updates)
             elif opt_type == OptimizerType.FEDADAM:
                 self.aggregate_fedadam(updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}")
-        
+
         return self.history
 
 
@@ -623,7 +623,7 @@ def create_non_iid_datasets(
 ) -> List[OptDataset]:
     """Create non-IID datasets using Dirichlet distribution."""
     datasets = []
-    
+
     for i in range(num_clients):
         class_probs = np.random.dirichlet(
             [config.dirichlet_alpha] * config.num_classes
@@ -636,7 +636,7 @@ def create_non_iid_datasets(
             class_probs=class_probs
         )
         datasets.append(dataset)
-    
+
     return datasets
 
 
@@ -645,14 +645,14 @@ def main():
     print("=" * 60)
     print("Tutorial 168: FL Advanced Optimization")
     print("=" * 60)
-    
+
     config = AdvOptConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create non-IID datasets
     datasets = create_non_iid_datasets(config.num_clients, config)
-    
+
     # Create appropriate clients
     ClientClass = {
         OptimizerType.FEDAVG: FedAvgClient,
@@ -661,15 +661,15 @@ def main():
         OptimizerType.FEDNOVA: FedNovaClient,
         OptimizerType.FEDADAM: FedAvgClient
     }[config.optimizer_type]
-    
+
     clients = [ClientClass(i, d, config) for i, d in enumerate(datasets)]
-    
+
     test_data = OptDataset(client_id=999, n=500, seed=999)
     model = OptModel(config)
-    
+
     server = FedServer(model, clients, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print(f"Optimizer: {config.optimizer_type.value}")
     print(f"Final Accuracy: {history[-1]['accuracy']:.4f}")

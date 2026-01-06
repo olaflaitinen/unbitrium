@@ -224,11 +224,11 @@ class StalenessWeighter:
     ) -> list[float]:
         """Compute weights for updates."""
         weights = []
-        
+
         for update in updates:
             staleness = current_version - update.model_version
             staleness = max(0, staleness)
-            
+
             if self.method == "exponential":
                 w = self.decay ** staleness
             elif self.method == "polynomial":
@@ -237,9 +237,9 @@ class StalenessWeighter:
                 w = 1.0
             else:
                 w = 1.0
-            
+
             weights.append(w * update.num_samples)
-        
+
         # Normalize
         total = sum(weights)
         return [w / total for w in weights]
@@ -268,13 +268,13 @@ class FedAsyncServer:
     def aggregate_update(self, update: AsyncUpdate) -> None:
         """Immediately aggregate single update."""
         weight = self.weighter.compute_weights([update], self.model_version)[0]
-        
+
         with torch.no_grad():
             for name, param in self.model.named_parameters():
                 if name in update.state_dict:
                     delta = update.state_dict[name] - param.data
                     param.data += self.config.learning_rate * weight * delta
-        
+
         self.model_version += 1
 
 
@@ -310,7 +310,7 @@ class FedBuffServer:
             return False
 
         weights = self.weighter.compute_weights(updates, self.model_version)
-        
+
         with torch.no_grad():
             for name, param in self.model.named_parameters():
                 delta = sum(
@@ -319,7 +319,7 @@ class FedBuffServer:
                     if name in u.state_dict
                 )
                 param.data += delta
-        
+
         self.model_version += 1
         return True
 
@@ -347,7 +347,7 @@ class AsyncClient:
         """Train locally and return update."""
         # Simulate compute time
         time.sleep(self.compute_time)
-        
+
         # Create local model
         local_model = nn.Sequential(
             nn.Linear(32, 64),
@@ -355,7 +355,7 @@ class AsyncClient:
             nn.Linear(64, 10),
         )
         local_model.load_state_dict(model_state)
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -404,7 +404,7 @@ def simulate_async_fl(mode: str = "fedbuff") -> dict:
         compute_times.append(np.random.exponential(0.1))
 
     config = AsyncFLConfig(async_mode=mode)
-    
+
     model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),
@@ -442,7 +442,7 @@ def simulate_async_fl(mode: str = "fedbuff") -> dict:
             updates_count += 1
 
     duration = time.time() - start_time
-    
+
     return {
         "mode": mode,
         "updates": updates_count,

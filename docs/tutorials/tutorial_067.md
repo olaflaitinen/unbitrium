@@ -295,17 +295,17 @@ class ModelRegistryContract(SmartContract):
         """Register a model update from a client."""
         round_num = self.state["current_round"]
         model_hash = args["model_hash"]
-        
+
         if round_num not in self.state["models"]:
             self.state["models"][round_num] = {}
-        
+
         self.state["models"][round_num][caller] = {
             "hash": model_hash,
             "num_samples": args.get("num_samples", 0),
             "timestamp": time.time(),
         }
         self.state["participants"].add(caller)
-        
+
         return f"Update registered for round {round_num}"
 
     def _get_global_model(self) -> Optional[Dict]:
@@ -319,7 +319,7 @@ class ModelRegistryContract(SmartContract):
         """Finalize current round and start new one."""
         if caller != self.owner:
             raise PermissionError("Only owner can finalize rounds")
-        
+
         self.state["current_round"] += 1
         return f"Round {self.state['current_round'] - 1} finalized"
 
@@ -361,27 +361,27 @@ class IncentiveContract(SmartContract):
         """Record client contribution for rewards."""
         client = args["client"]
         quality = args["quality"]  # 0-1 quality score
-        
+
         if client not in self.state["contributions"]:
             self.state["contributions"][client] = []
-        
+
         self.state["contributions"][client].append(quality)
-        
+
         # Update reputation
         if client not in self.state["reputation"]:
             self.state["reputation"][client] = 0.5
-        
+
         # Exponential moving average
         self.state["reputation"][client] = (
             0.9 * self.state["reputation"][client] + 0.1 * quality
         )
-        
+
         return f"Contribution recorded for {client}"
 
     def _distribute_rewards(self, args: Dict, caller: str) -> Dict[str, float]:
         """Distribute rewards based on contributions."""
         round_num = args["round"]
-        
+
         # Calculate total weighted contribution
         total_weighted = 0
         for client, contribs in self.state["contributions"].items():
@@ -389,7 +389,7 @@ class IncentiveContract(SmartContract):
                 stake = self.state["stakes"].get(client, 1)
                 reputation = self.state["reputation"].get(client, 0.5)
                 total_weighted += np.mean(contribs) * stake * reputation
-        
+
         # Distribute rewards
         rewards = {}
         for client, contribs in self.state["contributions"].items():
@@ -397,31 +397,31 @@ class IncentiveContract(SmartContract):
                 stake = self.state["stakes"].get(client, 1)
                 reputation = self.state["reputation"].get(client, 0.5)
                 weight = np.mean(contribs) * stake * reputation
-                
+
                 reward = (weight / total_weighted) * self.state["total_reward_pool"]
                 rewards[client] = reward
-                
+
                 if client not in self.state["balances"]:
                     self.state["balances"][client] = 0
                 self.state["balances"][client] += reward
-        
+
         # Clear contributions for next round
         self.state["contributions"] = {}
-        
+
         return rewards
 
     def _slash(self, args: Dict, caller: str) -> str:
         """Slash stake for malicious behavior."""
         if caller != self.owner:
             raise PermissionError("Only owner can slash")
-        
+
         client = args["client"]
         amount = args["amount"]
-        
+
         if client in self.state["stakes"]:
             self.state["stakes"][client] = max(0, self.state["stakes"][client] - amount)
             self.state["reputation"][client] *= 0.5
-        
+
         return f"Slashed {amount} from {client}"
 ```
 
@@ -514,10 +514,10 @@ class BlockchainFLServer:
         self.model = model
         self.clients = clients
         self.num_rounds = num_rounds
-        
+
         # Initialize blockchain
         self.blockchain = Blockchain(difficulty=2)
-        
+
         # Initialize smart contracts
         self.model_registry = ModelRegistryContract(
             address="0x1",
@@ -528,7 +528,7 @@ class BlockchainFLServer:
             owner="server",
             total_reward=1000.0,
         )
-        
+
         # Clients stake tokens
         for client in clients:
             self.incentive_contract.execute(
@@ -536,23 +536,23 @@ class BlockchainFLServer:
                 {"amount": client.stake},
                 client.client_id,
             )
-        
+
         self.history = []
 
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate model updates."""
         if not updates:
             return
-        
+
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for name in self.model.state_dict():
             new_state[name] = sum(
                 (u["num_samples"] / total) * u["state_dict"][name].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def evaluate_contribution(self, update: Dict) -> float:
@@ -562,7 +562,7 @@ class BlockchainFLServer:
         for key in update["state_dict"]:
             diff = update["state_dict"][key] - self.model.state_dict()[key]
             total_norm += diff.abs().sum().item()
-        
+
         # Normalize to 0-1
         return min(1.0, total_norm / 100)
 
@@ -570,12 +570,12 @@ class BlockchainFLServer:
         """Run blockchain-coordinated FL."""
         for round_num in range(self.num_rounds):
             updates = []
-            
+
             for client in self.clients:
                 # Client trains locally
                 update = client.train(self.model)
                 updates.append(update)
-                
+
                 # Register update on blockchain
                 tx = Transaction(
                     tx_id=f"tx_{round_num}_{client.client_id}",
@@ -586,7 +586,7 @@ class BlockchainFLServer:
                     timestamp=time.time(),
                 )
                 self.blockchain.add_transaction(tx)
-                
+
                 # Register in smart contract
                 self.model_registry.execute(
                     "register_update",
@@ -596,7 +596,7 @@ class BlockchainFLServer:
                     },
                     client.client_id,
                 )
-                
+
                 # Record contribution for incentives
                 quality = self.evaluate_contribution(update)
                 self.incentive_contract.execute(
@@ -607,20 +607,20 @@ class BlockchainFLServer:
 
             # Aggregate updates
             self.aggregate(updates)
-            
+
             # Mine block
             block = self.blockchain.mine_block("server")
-            
+
             # Finalize round on chain
             self.model_registry.execute("finalize_round", {}, "server")
-            
+
             # Distribute rewards
             rewards = self.incentive_contract.execute(
                 "distribute_rewards",
                 {"round": round_num},
                 "server",
             )
-            
+
             self.history.append({
                 "round": round_num,
                 "block_index": block.index if block else -1,

@@ -357,7 +357,7 @@ class RecurringDrift(DriftGenerator):
         """Generate data with recurring drift."""
         # Use sine wave for smooth transitions
         drift_factor = 0.5 * (1 + np.sin(2 * np.pi * t / self.period))
-        
+
         client_data = []
 
         for _ in range(self.config.num_clients):
@@ -385,7 +385,7 @@ class RecurringDrift(DriftGenerator):
             class_mean = np.zeros(self.config.feature_dim)
             class_mean[label % self.config.feature_dim] = 2.0
             class_mean[(label * 3) % self.config.feature_dim] = 1.5
-            
+
             # Add drift-dependent shift
             shift = drift_factor * np.ones(self.config.feature_dim) * 0.5
             features[i] = class_mean + shift + np.random.randn(self.config.feature_dim) * 0.5
@@ -441,12 +441,12 @@ class PageHinkley(DriftDetector):
         self.n += 1
         self.sum += value
         mean = self.sum / self.n
-        
+
         self.m += value - mean - self.delta
         self.m_min = min(self.m_min, self.m)
-        
+
         ph = self.m - self.m_min
-        
+
         if self.n >= self.min_instances and ph > self.threshold:
             return True
         return False
@@ -471,31 +471,31 @@ class ADWIN(DriftDetector):
     def update(self, value: float) -> bool:
         self.window.append(value)
         self.total += value
-        
+
         if len(self.window) > self.max_window_size:
             self.total -= self.window.pop(0)
-        
+
         if len(self.window) < 10:
             return False
-        
+
         # Check for drift
         n = len(self.window)
         for i in range(10, n - 10):
             n0 = i
             n1 = n - i
-            
+
             mean0 = sum(self.window[:i]) / n0
             mean1 = sum(self.window[i:]) / n1
-            
+
             # Hoeffding bound
             epsilon = np.sqrt(0.5 * np.log(2.0 / self.delta) * (1.0/n0 + 1.0/n1))
-            
+
             if abs(mean0 - mean1) > epsilon:
                 # Drift detected, shrink window
                 self.window = self.window[i:]
                 self.total = sum(self.window)
                 return True
-        
+
         return False
 
 
@@ -523,23 +523,23 @@ class DDM(DriftDetector):
     def update(self, error: float) -> bool:
         """Update with error rate (0 or 1)."""
         self.n += 1
-        
+
         # Update running estimates
         self.p = self.p + (error - self.p) / self.n
         self.s = np.sqrt(self.p * (1 - self.p) / self.n)
-        
+
         if self.n < self.min_instances:
             return False
-        
+
         # Check for minimum
         if self.p + self.s < self.p_min + self.s_min:
             self.p_min = self.p
             self.s_min = self.s
-        
+
         # Check for drift
         if self.p + self.s > self.p_min + self.drift_level * self.s_min:
             return True
-        
+
         return False
 ```
 
@@ -661,7 +661,7 @@ def train_with_drift_detection(
         if detector.update(avg_loss):
             drift_detected_at.append(t)
             print(f"Drift detected at timestep {t}!")
-            
+
             # Adapt: increase learning rate temporarily
             learning_rate = 0.05
             detector.reset()

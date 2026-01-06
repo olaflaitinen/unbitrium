@@ -168,7 +168,7 @@ class TransferModel(nn.Module):
             nn.Dropout(0.3),
             nn.Linear(32, num_classes),
         )
-        
+
         if freeze_backbone:
             self.freeze_backbone()
 
@@ -202,10 +202,10 @@ class DomainAdaptationModel(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.feature_dim = backbone.output_dim
-        
+
         # Task classifier
         self.classifier = nn.Linear(self.feature_dim, num_classes)
-        
+
         # Domain discriminator
         self.domain_discriminator = nn.Sequential(
             nn.Linear(self.feature_dim, 32),
@@ -217,7 +217,7 @@ class DomainAdaptationModel(nn.Module):
     def forward(self, x, return_domain: bool = False):
         features = self.backbone(x)
         class_output = self.classifier(features)
-        
+
         if return_domain:
             domain_output = self.domain_discriminator(features)
             return class_output, domain_output
@@ -245,7 +245,7 @@ class FedTLClient:
 
     def train(self, model: nn.Module) -> dict:
         local_model = copy.deepcopy(model)
-        
+
         # Use different LR for fine-tuning
         lr = self.config.finetune_lr if self.config.freeze_backbone else self.config.learning_rate
         optimizer = torch.optim.Adam(
@@ -319,7 +319,7 @@ class FedTLServer:
         """Aggregate only trainable parameters."""
         total = sum(u["num_samples"] for u in updates)
         new_state = self.model.state_dict()
-        
+
         # Only aggregate head parameters if backbone is frozen
         for key in new_state:
             if "head" in key or not self.config.freeze_backbone:
@@ -328,7 +328,7 @@ class FedTLServer:
                         (u["num_samples"] / total) * u["state_dict"][key].float()
                         for u in updates
                     )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -337,7 +337,7 @@ class FedTLServer:
             self.aggregate(updates)
 
             accs = [c.evaluate(self.model)["accuracy"] for c in self.clients]
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_accuracy": np.mean(accs),
@@ -354,7 +354,7 @@ def simulate_federated_tl() -> dict:
     torch.manual_seed(42)
 
     config = FedTLConfig()
-    
+
     # Create pre-trained backbone
     backbone = PretrainedBackbone(config.input_dim)
     # Simulate pre-training
@@ -371,7 +371,7 @@ def simulate_federated_tl() -> dict:
         labels = np.random.randint(0, config.num_classes, n)
         for j in range(n):
             features[j, labels[j] % config.input_dim] += 2.0
-        
+
         dataset = TransferDataset(features, labels)
         clients.append(FedTLClient(i, dataset, config))
 

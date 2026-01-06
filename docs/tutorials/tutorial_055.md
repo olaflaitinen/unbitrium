@@ -97,29 +97,29 @@ logger = logging.getLogger(__name__)
 @dataclass
 class KDConfig:
     """Knowledge distillation configuration."""
-    
+
     num_rounds: int = 50
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     teacher_hidden: int = 128
     student_hidden: int = 32
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     temperature: float = 3.0
     alpha: float = 0.5  # Weight for distillation loss
-    
+
     seed: int = 42
 
 
 class TeacherModel(nn.Module):
     """Larger teacher model."""
-    
+
     def __init__(self, config: KDConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -129,13 +129,13 @@ class TeacherModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.teacher_hidden // 2, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
 class StudentModel(nn.Module):
     """Smaller student model."""
-    
+
     def __init__(self, config: KDConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -143,7 +143,7 @@ class StudentModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.student_hidden, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
@@ -154,7 +154,7 @@ class KDDataset(Dataset):
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self): return len(self.y)
     def __getitem__(self, idx): return self.x[idx], self.y[idx]
 
@@ -169,16 +169,16 @@ def distillation_loss(
     """Compute distillation loss."""
     soft_teacher = F.softmax(teacher_logits / temperature, dim=1)
     soft_student = F.log_softmax(student_logits / temperature, dim=1)
-    
+
     distill_loss = F.kl_div(soft_student, soft_teacher, reduction='batchmean') * (temperature ** 2)
     hard_loss = F.cross_entropy(student_logits, labels)
-    
+
     return alpha * distill_loss + (1 - alpha) * hard_loss
 
 
 class KDClient:
     """Client with knowledge distillation."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -188,16 +188,16 @@ class KDClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-        
+
         # Local teacher
         self.teacher = TeacherModel(config)
-    
+
     def train_teacher(self, global_teacher: nn.Module) -> Dict:
         """Train local teacher."""
         local = copy.deepcopy(global_teacher)
         optimizer = torch.optim.Adam(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -205,46 +205,46 @@ class KDClient:
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-        
+
         self.teacher.load_state_dict(local.state_dict())
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
         }
-    
+
     def train_student(self, student: nn.Module) -> Dict:
         """Train student with distillation from local teacher."""
         local = copy.deepcopy(student)
         optimizer = torch.optim.Adam(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         self.teacher.eval()
-        
+
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
-                
+
                 student_out = local(x)
-                
+
                 with torch.no_grad():
                     teacher_out = self.teacher(x)
-                
+
                 loss = distillation_loss(
                     student_out, teacher_out, y,
                     self.config.temperature, self.config.alpha
                 )
-                
+
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -254,7 +254,7 @@ class KDClient:
 
 class KDServer:
     """Server for FL with knowledge distillation."""
-    
+
     def __init__(
         self,
         clients: List[KDClient],
@@ -264,11 +264,11 @@ class KDServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.teacher = TeacherModel(config)
         self.student = StudentModel(config)
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict], model: nn.Module) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -278,7 +278,7 @@ class KDServer:
                 for u in updates
             )
         model.load_state_dict(new_state)
-    
+
     def evaluate(self, model: nn.Module) -> Dict[str, float]:
         model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
@@ -289,38 +289,38 @@ class KDServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         logger.info("Starting FL with knowledge distillation")
-        
+
         # Phase 1: Train teacher
         logger.info("Phase 1: Training teacher...")
         for round_num in range(self.config.num_rounds // 2):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train_teacher(self.teacher) for c in selected]
             self.aggregate(updates, self.teacher)
-        
+
         teacher_metrics = self.evaluate(self.teacher)
         logger.info(f"Teacher accuracy: {teacher_metrics['accuracy']:.4f}")
-        
+
         # Phase 2: Train student with distillation
         logger.info("Phase 2: Training student with distillation...")
         for round_num in range(self.config.num_rounds // 2):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train_student(self.student) for c in selected]
             self.aggregate(updates, self.student)
-            
+
             metrics = self.evaluate(self.student)
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-        
+
         return self.history
 
 
@@ -328,21 +328,21 @@ def main():
     print("=" * 60)
     print("Tutorial 055: FL Knowledge Distillation")
     print("=" * 60)
-    
+
     config = KDConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     clients = [KDClient(i, KDDataset(seed=config.seed + i), config) for i in range(config.num_clients)]
     test_data = KDDataset(seed=999)
-    
+
     server = KDServer(clients, test_data, config)
     history = server.train()
-    
+
     # Compare sizes
     teacher_params = sum(p.numel() for p in server.teacher.parameters())
     student_params = sum(p.numel() for p in server.student.parameters())
-    
+
     print("\n" + "=" * 60)
     print("Knowledge Distillation Complete")
     print(f"Teacher params: {teacher_params:,}")

@@ -109,32 +109,32 @@ logger = logging.getLogger(__name__)
 @dataclass
 class HealthcareConfig:
     """Healthcare FL configuration."""
-    
+
     num_rounds: int = 50
     num_hospitals: int = 8
     hospitals_per_round: int = 5
-    
+
     # Patient features
     num_features: int = 50
     num_classes: int = 2  # Disease prediction
     hidden_dim: int = 64
-    
+
     learning_rate: float = 0.01
     batch_size: int = 16
     local_epochs: int = 3
-    
+
     # Privacy
     enable_dp: bool = True
     dp_epsilon: float = 1.0
     dp_delta: float = 1e-5
     clip_norm: float = 1.0
-    
+
     seed: int = 42
 
 
 class PatientDataset(Dataset):
     """Simulated patient dataset."""
-    
+
     def __init__(
         self,
         hospital_id: int,
@@ -144,34 +144,34 @@ class PatientDataset(Dataset):
         disease_prevalence: float = 0.3
     ):
         np.random.seed(seed + hospital_id)
-        
+
         self.hospital_id = hospital_id
-        
+
         # Simulate patient features
         self.features = torch.randn(n_patients, n_features, dtype=torch.float32)
-        
+
         # Simulate disease labels with hospital-specific prevalence
         prevalence = disease_prevalence + np.random.uniform(-0.1, 0.1)
         self.labels = torch.zeros(n_patients, dtype=torch.long)
-        
+
         for i in range(n_patients):
             risk_score = self.features[i, :10].sum().item()
             prob = 1 / (1 + np.exp(-risk_score + 2))
             prob = prob * 0.5 + prevalence * 0.5
-            
+
             if np.random.random() < prob:
                 self.labels[i] = 1
-    
+
     def __len__(self): return len(self.labels)
     def __getitem__(self, idx): return self.features[idx], self.labels[idx]
 
 
 class DiseasePredictor(nn.Module):
     """Disease prediction model."""
-    
+
     def __init__(self, config: HealthcareConfig):
         super().__init__()
-        
+
         self.net = nn.Sequential(
             nn.Linear(config.num_features, config.hidden_dim),
             nn.ReLU(),
@@ -181,13 +181,13 @@ class DiseasePredictor(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(config.hidden_dim // 2, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
 class DifferentialPrivacy:
     """DP mechanism for healthcare."""
-    
+
     def __init__(
         self,
         epsilon: float,
@@ -197,30 +197,30 @@ class DifferentialPrivacy:
         self.epsilon = epsilon
         self.delta = delta
         self.clip_norm = clip_norm
-    
+
     def clip_gradients(self, model: nn.Module) -> float:
         """Clip gradients to bound sensitivity."""
         total_norm = 0.0
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 total_norm += param.grad.data.norm() ** 2
-        
+
         total_norm = total_norm ** 0.5
         clip_factor = min(1.0, self.clip_norm / (total_norm + 1e-8))
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 param.grad.data.mul_(clip_factor)
-        
+
         return total_norm.item()
-    
+
     def add_noise(self, model: nn.Module, num_samples: int) -> None:
         """Add calibrated Gaussian noise."""
         noise_scale = self.clip_norm * np.sqrt(
             2 * np.log(1.25 / self.delta)
         ) / (self.epsilon * num_samples)
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 noise = torch.randn_like(param.grad) * noise_scale
@@ -229,7 +229,7 @@ class DifferentialPrivacy:
 
 class Hospital:
     """Hospital as FL client."""
-    
+
     def __init__(
         self,
         hospital_id: int,
@@ -239,7 +239,7 @@ class Hospital:
         self.hospital_id = hospital_id
         self.dataset = dataset
         self.config = config
-        
+
         if config.enable_dp:
             self.dp = DifferentialPrivacy(
                 config.dp_epsilon,
@@ -248,34 +248,34 @@ class Hospital:
             )
         else:
             self.dp = None
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train on local patient data with privacy."""
         local = copy.deepcopy(model)
         optimizer = torch.optim.Adam(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss, num_batches = 0.0, 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
-                
+
                 # Class-weighted loss for imbalance
                 weight = torch.tensor([1.0, 3.0])  # Higher weight for disease
                 loss = F.cross_entropy(local(x), y, weight=weight)
                 loss.backward()
-                
+
                 if self.dp:
                     self.dp.clip_gradients(local)
                     self.dp.add_noise(local, len(self.dataset))
-                
+
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Compute local metrics
         local.eval()
         with torch.no_grad():
@@ -285,7 +285,7 @@ class Hospital:
                 preds = local(x).argmax(dim=1)
                 all_preds.extend(preds.tolist())
                 all_labels.extend(y.tolist())
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -296,7 +296,7 @@ class Hospital:
 
 class HealthcareFLServer:
     """FL server for healthcare."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -309,7 +309,7 @@ class HealthcareFLServer:
         self.test_data = test_data
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -319,55 +319,55 @@ class HealthcareFLServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         all_preds, all_labels = [], []
         with torch.no_grad():
             for x, y in loader:
                 preds = self.model(x).argmax(dim=1)
                 all_preds.extend(preds.tolist())
                 all_labels.extend(y.tolist())
-        
+
         all_preds = np.array(all_preds)
         all_labels = np.array(all_labels)
-        
+
         accuracy = (all_preds == all_labels).mean()
-        
+
         # Compute sensitivity/specificity
         tp = ((all_preds == 1) & (all_labels == 1)).sum()
         tn = ((all_preds == 0) & (all_labels == 0)).sum()
         fp = ((all_preds == 1) & (all_labels == 0)).sum()
         fn = ((all_preds == 0) & (all_labels == 1)).sum()
-        
+
         sensitivity = tp / (tp + fn + 1e-8)
         specificity = tn / (tn + fp + 1e-8)
-        
+
         return {
             "accuracy": accuracy,
             "sensitivity": sensitivity,
             "specificity": specificity
         }
-    
+
     def train(self) -> List[Dict]:
         logger.info(f"Starting healthcare FL with {len(self.hospitals)} hospitals")
         logger.info(f"DP enabled: {self.config.enable_dp}, epsilon: {self.config.dp_epsilon}")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.hospitals_per_round, len(self.hospitals))
             indices = np.random.choice(len(self.hospitals), n, replace=False)
             selected = [self.hospitals[i] for i in indices]
-            
+
             updates = [h.train(self.model) for h in selected]
             self.aggregate(updates)
-            
+
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: "
@@ -375,7 +375,7 @@ class HealthcareFLServer:
                     f"sens={metrics['sensitivity']:.4f}, "
                     f"spec={metrics['specificity']:.4f}"
                 )
-        
+
         return self.history
 
 
@@ -383,11 +383,11 @@ def main():
     print("=" * 60)
     print("Tutorial 115: FL for Healthcare")
     print("=" * 60)
-    
+
     config = HealthcareConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     hospitals = []
     for i in range(config.num_hospitals):
         dataset = PatientDataset(
@@ -397,13 +397,13 @@ def main():
         )
         hospital = Hospital(i, dataset, config)
         hospitals.append(hospital)
-    
+
     test_data = PatientDataset(hospital_id=999, seed=999)
     model = DiseasePredictor(config)
-    
+
     server = HealthcareFLServer(model, hospitals, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Training Complete")
     print(f"Final Accuracy: {history[-1]['accuracy']:.4f}")

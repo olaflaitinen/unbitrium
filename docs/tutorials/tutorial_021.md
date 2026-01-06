@@ -69,7 +69,7 @@ graph TB
         T1[Task 1]
         T2[Task 2]
         T3[Task 3]
-        
+
         T1 --- T2
         T2 --- T3
     end
@@ -170,7 +170,7 @@ class MTLModel(nn.Module):
             nn.Linear(shared_dim, shared_dim),
             nn.ReLU(),
         )
-        
+
         # Task-specific heads
         self.heads = nn.ModuleList([
             nn.Linear(shared_dim, num_classes)
@@ -250,7 +250,7 @@ class MTLClient:
         model: MTLModel,
     ) -> dict[str, Any]:
         local_model = copy.deepcopy(model)
-        
+
         # Only optimize shared + this task's head
         params = (
             local_model.get_shared_params() +
@@ -374,15 +374,15 @@ def run_mtl_experiment(num_tasks: int = 5) -> dict:
 
     config = MTLConfig(num_clients=len(datasets))
     model = MTLModel(num_tasks=num_tasks)
-    
+
     clients = [
         MTLClient(i, task_ids[i], ds, config)
         for i, ds in enumerate(datasets)
     ]
-    
+
     server = MTLServer(model, clients, config)
     history = server.train()
-    
+
     return {"history": history, "final_loss": history[-1]["loss"]}
 
 

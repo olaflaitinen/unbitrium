@@ -151,7 +151,7 @@ class MatrixFactorization(nn.Module):
         self.user_bias = nn.Embedding(num_users, 1)
         self.item_bias = nn.Embedding(num_items, 1)
         self.global_bias = nn.Parameter(torch.zeros(1))
-        
+
         # Initialize
         nn.init.normal_(self.user_embeddings.weight, 0, 0.1)
         nn.init.normal_(self.item_embeddings.weight, 0, 0.1)
@@ -161,11 +161,11 @@ class MatrixFactorization(nn.Module):
     def forward(self, user_ids, item_ids):
         user_emb = self.user_embeddings(user_ids)
         item_emb = self.item_embeddings(item_ids)
-        
+
         dot = (user_emb * item_emb).sum(dim=1)
         user_b = self.user_bias(user_ids).squeeze()
         item_b = self.item_bias(item_ids).squeeze()
-        
+
         return dot + user_b + item_b + self.global_bias
 
 
@@ -182,11 +182,11 @@ class NeuralCollaborativeFiltering(nn.Module):
         # GMF embedding
         self.user_gmf = nn.Embedding(num_users, embedding_dim)
         self.item_gmf = nn.Embedding(num_items, embedding_dim)
-        
+
         # MLP embeddings
         self.user_mlp = nn.Embedding(num_users, embedding_dim)
         self.item_mlp = nn.Embedding(num_items, embedding_dim)
-        
+
         # MLP layers
         self.mlp = nn.Sequential(
             nn.Linear(embedding_dim * 2, 64),
@@ -196,10 +196,10 @@ class NeuralCollaborativeFiltering(nn.Module):
             nn.Linear(32, embedding_dim),
             nn.ReLU(),
         )
-        
+
         # Final layer
         self.output = nn.Linear(embedding_dim * 2, 1)
-        
+
         self._init_weights()
 
     def _init_weights(self):
@@ -216,13 +216,13 @@ class NeuralCollaborativeFiltering(nn.Module):
         user_gmf = self.user_gmf(user_ids)
         item_gmf = self.item_gmf(item_ids)
         gmf_out = user_gmf * item_gmf
-        
+
         # MLP part
         user_mlp = self.user_mlp(user_ids)
         item_mlp = self.item_mlp(item_ids)
         mlp_in = torch.cat([user_mlp, item_mlp], dim=1)
         mlp_out = self.mlp(mlp_in)
-        
+
         # Combine
         concat = torch.cat([gmf_out, mlp_out], dim=1)
         return self.output(concat).squeeze()
@@ -268,13 +268,13 @@ class FedRecClient:
             for item_ids, ratings in loader:
                 batch_size = len(item_ids)
                 batch_user_ids = user_ids.expand(batch_size)
-                
+
                 optimizer.zero_grad()
                 predictions = local_model(batch_user_ids, item_ids)
                 loss = F.mse_loss(predictions, ratings)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
 
@@ -310,7 +310,7 @@ class FedRecServer:
         """Aggregate item embeddings only (user embeddings stay local)."""
         total = sum(u["num_interactions"] for u in updates)
         new_state = self.model.state_dict()
-        
+
         # Only aggregate item-related parameters
         for key in new_state:
             if "item" in key or "mlp" in key or "output" in key or "global" in key:
@@ -318,7 +318,7 @@ class FedRecServer:
                     (u["num_interactions"] / total) * u["state_dict"][key].float()
                     for u in updates
                 )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -327,7 +327,7 @@ class FedRecServer:
             self.aggregate(updates)
 
             avg_loss = np.mean([u["loss"] for u in updates])
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_loss": avg_loss,
@@ -345,7 +345,7 @@ def simulate_federated_rec() -> dict:
     torch.manual_seed(42)
 
     config = FedRecConfig()
-    
+
     # Generate synthetic interaction data
     clients = []
     for user_id in range(config.num_users):
@@ -354,7 +354,7 @@ def simulate_federated_rec() -> dict:
         item_ids = np.random.randint(0, config.num_items, num_interactions)
         # Ratings based on embedding similarity (simulated)
         ratings = np.random.rand(num_interactions) * 4 + 1  # 1-5 ratings
-        
+
         dataset = InteractionDataset(user_id, item_ids, ratings)
         clients.append(FedRecClient(user_id, dataset, config))
 

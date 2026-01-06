@@ -88,10 +88,10 @@ graph TB
     subgraph "Non-IID Strategies"
         LABEL[Label-based Split]
         LABEL_DESC[Clients have subset of classes]
-        
+
         DIRICHLET[Dirichlet Split]
         DIR_DESC[Soft label distribution]
-        
+
         QUANTITY[Quantity Skew]
         QTY_DESC[Varying sample counts]
     end
@@ -250,7 +250,7 @@ class BasePartitioner(ABC):
             Dictionary of statistics.
         """
         num_classes = len(np.unique(labels))
-        
+
         stats = {
             "num_clients": len(partitions),
             "samples_per_client": [len(p) for p in partitions],
@@ -262,7 +262,7 @@ class BasePartitioner(ABC):
             client_labels = labels[partition]
             unique_classes = np.unique(client_labels)
             stats["classes_per_client"].append(len(unique_classes))
-            
+
             # Class distribution
             dist = np.zeros(num_classes)
             for label in client_labels:
@@ -290,11 +290,11 @@ class IIDPartitioner(BasePartitioner):
         """
         num_samples = len(labels)
         indices = np.random.permutation(num_samples)
-        
+
         # Split evenly
         split_size = num_samples // self.config.num_clients
         partitions = []
-        
+
         for i in range(self.config.num_clients):
             start = i * split_size
             if i == self.config.num_clients - 1:
@@ -337,13 +337,13 @@ class LabelPartitioner(BasePartitioner):
             List of index arrays.
         """
         num_classes = len(np.unique(labels))
-        
+
         # Group indices by class
         class_indices = {c: np.where(labels == c)[0] for c in range(num_classes)}
-        
+
         # Assign classes to clients
         partitions = [[] for _ in range(self.config.num_clients)]
-        
+
         for client_id in range(self.config.num_clients):
             # Select classes for this client
             start_class = (client_id * self.classes_per_client) % num_classes
@@ -351,7 +351,7 @@ class LabelPartitioner(BasePartitioner):
                 (start_class + i) % num_classes
                 for i in range(self.classes_per_client)
             ]
-            
+
             for cls in client_classes:
                 # Divide class samples among clients with this class
                 clients_with_class = [
@@ -359,17 +359,17 @@ class LabelPartitioner(BasePartitioner):
                     if cls in [(c * self.classes_per_client + i) % num_classes
                                for i in range(self.classes_per_client)]
                 ]
-                
+
                 # Split class indices
                 cls_indices = class_indices[cls]
                 split = len(cls_indices) // len(clients_with_class)
                 client_pos = clients_with_class.index(client_id)
-                
+
                 start = client_pos * split
                 end = start + split if client_pos < len(clients_with_class) - 1 else len(cls_indices)
-                
+
                 partitions[client_id].extend(cls_indices[start:end])
-        
+
         return [np.array(p) for p in partitions]
 ```
 
@@ -394,34 +394,34 @@ class DirichletPartitioner(BasePartitioner):
         """
         num_classes = len(np.unique(labels))
         num_samples = len(labels)
-        
+
         # Sample proportions from Dirichlet for each class
         # Shape: (num_classes, num_clients)
         proportions = np.random.dirichlet(
             [self.config.alpha] * self.config.num_clients,
             num_classes,
         )
-        
+
         # Group indices by class
         class_indices = {c: np.where(labels == c)[0] for c in range(num_classes)}
-        
+
         # Partition each class according to proportions
         partitions = [[] for _ in range(self.config.num_clients)]
-        
+
         for cls in range(num_classes):
             cls_indices = class_indices[cls]
             np.random.shuffle(cls_indices)
-            
+
             # Split according to proportions
             cls_proportions = proportions[cls]
             cumsum = np.cumsum(cls_proportions)
-            
+
             start = 0
             for client_id in range(self.config.num_clients):
                 end = int(cumsum[client_id] * len(cls_indices))
                 partitions[client_id].extend(cls_indices[start:end])
                 start = end
-        
+
         # Ensure minimum samples
         for i, partition in enumerate(partitions):
             if len(partition) < self.config.min_samples:
@@ -431,7 +431,7 @@ class DirichletPartitioner(BasePartitioner):
                 borrowed = partitions[largest][:needed]
                 partitions[largest] = partitions[largest][needed:]
                 partition.extend(borrowed)
-        
+
         return [np.array(p) for p in partitions]
 
 
@@ -467,26 +467,26 @@ class QuantitySkewPartitioner(BasePartitioner):
         """
         num_samples = len(labels)
         indices = np.random.permutation(num_samples)
-        
+
         # Generate skewed proportions using exponential
         raw_proportions = np.random.exponential(self.skew_factor, self.config.num_clients)
         proportions = raw_proportions / raw_proportions.sum()
-        
+
         # Ensure minimum samples
         min_prop = self.config.min_samples / num_samples
         proportions = np.maximum(proportions, min_prop)
         proportions /= proportions.sum()
-        
+
         # Split according to proportions
         cumsum = np.cumsum(proportions)
         partitions = []
         start = 0
-        
+
         for i in range(self.config.num_clients):
             end = int(cumsum[i] * num_samples)
             partitions.append(indices[start:end])
             start = end
-        
+
         return partitions
 
 
@@ -523,18 +523,18 @@ class CombinedPartitioner(BasePartitioner):
         dirichlet = DirichletPartitioner(self.config)
         self.config.alpha = self.alpha
         label_partitions = dirichlet.partition(labels)
-        
+
         # Then apply quantity skew to each partition
         final_partitions = []
-        
+
         for partition in label_partitions:
             # Subsample with quantity variation
             keep_ratio = np.random.exponential(0.5)
             keep_ratio = min(1.0, max(0.3, keep_ratio))
-            
+
             num_keep = max(self.config.min_samples, int(len(partition) * keep_ratio))
             final_partitions.append(partition[:num_keep])
-        
+
         return final_partitions
 ```
 
@@ -555,10 +555,10 @@ def visualize_partitions(
     """
     num_clients = len(partitions)
     num_classes = len(np.unique(labels))
-    
+
     # Compute class distribution per client
     distributions = np.zeros((num_clients, num_classes))
-    
+
     for i, partition in enumerate(partitions):
         client_labels = labels[partition]
         for label in client_labels:
@@ -566,7 +566,7 @@ def visualize_partitions(
         # Normalize
         if distributions[i].sum() > 0:
             distributions[i] /= distributions[i].sum()
-    
+
     # Plot heatmap
     plt.figure(figsize=(12, 6))
     plt.imshow(distributions, aspect='auto', cmap='Blues')
@@ -593,11 +593,11 @@ def compute_heterogeneity_metrics(
         Dictionary of metrics.
     """
     num_classes = len(np.unique(labels))
-    
+
     # Compute global distribution
     global_dist = np.bincount(labels, minlength=num_classes)
     global_dist = global_dist / global_dist.sum()
-    
+
     # Compute per-client distributions
     client_dists = []
     for partition in partitions:
@@ -605,7 +605,7 @@ def compute_heterogeneity_metrics(
         dist = np.bincount(client_labels, minlength=num_classes)
         dist = dist / max(1, dist.sum())
         client_dists.append(dist)
-    
+
     # Average KL divergence
     kl_divs = []
     for client_dist in client_dists:
@@ -614,13 +614,13 @@ def compute_heterogeneity_metrics(
         global_dist_safe = np.maximum(global_dist, 1e-10)
         kl = np.sum(client_dist * np.log(client_dist / global_dist_safe))
         kl_divs.append(kl)
-    
+
     # Average total variation distance
     tv_dists = []
     for client_dist in client_dists:
         tv = 0.5 * np.sum(np.abs(client_dist - global_dist))
         tv_dists.append(tv)
-    
+
     return {
         "avg_kl_divergence": np.mean(kl_divs),
         "max_kl_divergence": np.max(kl_divs),
@@ -647,7 +647,7 @@ def compare_partitioners(
         Dictionary of metrics per strategy.
     """
     config = PartitionConfig(num_clients=num_clients)
-    
+
     strategies = {
         "IID": IIDPartitioner(config),
         "Label-2": LabelPartitioner(config, classes_per_client=2),
@@ -655,14 +655,14 @@ def compare_partitioners(
         "Dirichlet-0.5": DirichletPartitioner(PartitionConfig(num_clients=num_clients, alpha=0.5)),
         "Dirichlet-1.0": DirichletPartitioner(PartitionConfig(num_clients=num_clients, alpha=1.0)),
     }
-    
+
     results = {}
     for name, partitioner in strategies.items():
         partitions = partitioner.partition(labels)
         metrics = compute_heterogeneity_metrics(labels, partitions)
         results[name] = metrics
         print(f"{name}: KL={metrics['avg_kl_divergence']:.3f}, TV={metrics['avg_tv_distance']:.3f}")
-    
+
     return results
 
 
@@ -673,7 +673,7 @@ if __name__ == "__main__":
     num_samples = 10000
     num_classes = 10
     labels = np.random.randint(0, num_classes, num_samples)
-    
+
     # Compare partitioners
     results = compare_partitioners(labels)
 ```

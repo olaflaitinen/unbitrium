@@ -176,7 +176,7 @@ def create_model(config: ModelConfig) -> nn.Module:
     """Create model from configuration."""
     layers = []
     prev_dim = config.input_dim
-    
+
     for hidden_dim in config.hidden_dims:
         layers.append(nn.Linear(prev_dim, hidden_dim))
         if config.activation == "relu":
@@ -185,9 +185,9 @@ def create_model(config: ModelConfig) -> nn.Module:
             layers.append(nn.Tanh())
         layers.append(nn.Dropout(config.dropout))
         prev_dim = hidden_dim
-    
+
     layers.append(nn.Linear(prev_dim, config.num_classes))
-    
+
     return nn.Sequential(*layers)
 
 
@@ -294,7 +294,7 @@ class FederatedValidator:
     ) -> dict[str, Any]:
         """Train model and compute validation score."""
         model = candidate.model
-        
+
         # Split each client's data
         train_sets = []
         val_sets = []
@@ -311,10 +311,10 @@ class FederatedValidator:
             for train_set in train_sets:
                 if len(train_set) == 0:
                     continue
-                    
+
                 local_model = create_model(candidate.config)
                 local_model.load_state_dict(global_state)
-                
+
                 optimizer = torch.optim.SGD(local_model.parameters(), lr=0.01)
                 loader = DataLoader(train_set, batch_size=32, shuffle=True)
 
@@ -389,24 +389,24 @@ class FederatedCrossValidator:
         """Perform K-fold cross-validation."""
         n_clients = len(client_datasets)
         fold_size = n_clients // self.k_folds
-        
+
         fold_scores = []
 
         for fold in range(self.k_folds):
             # Split clients into train and validation folds
             val_start = fold * fold_size
             val_end = val_start + fold_size
-            
+
             val_indices = list(range(val_start, val_end))
             train_indices = [i for i in range(n_clients) if i not in val_indices]
-            
+
             train_datasets = [client_datasets[i] for i in train_indices]
             val_datasets = [client_datasets[i] for i in val_indices]
 
             # Reset and train
             candidate.reset()
             model = candidate.model
-            
+
             for round_num in range(self.num_rounds):
                 global_state = model.state_dict()
                 updates = []
@@ -414,7 +414,7 @@ class FederatedCrossValidator:
                 for dataset in train_datasets:
                     local_model = create_model(candidate.config)
                     local_model.load_state_dict(global_state)
-                    
+
                     optimizer = torch.optim.SGD(local_model.parameters(), lr=0.01)
                     loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
@@ -538,10 +538,10 @@ def run_model_selection(
         n = np.random.randint(50, 200)
         features = np.random.randn(n, feature_dim).astype(np.float32)
         labels = np.random.randint(0, num_classes, n)
-        
+
         for i in range(n):
             features[i, labels[i] % feature_dim] += 2.0
-        
+
         datasets.append(SimpleDataset(features, labels))
 
     # Generate candidates
@@ -554,7 +554,7 @@ def run_model_selection(
         num_rounds=15,
         communication_weight=0.05,
     )
-    
+
     best, results = selector.select_best_model(candidates, datasets)
 
     print(f"\nBest model: {best.config.name}")

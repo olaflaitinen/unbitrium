@@ -231,7 +231,7 @@ class FederatedModel(nn.Module):
         dropout: float = 0.2,
     ) -> None:
         super().__init__()
-        
+
         self.network = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
@@ -275,7 +275,7 @@ class FedAvgClient:
         self.dataset = dataset
         self.config = config
         self.device = device or torch.device("cpu")
-        
+
         self.dataloader = DataLoader(
             dataset,
             batch_size=config.batch_size,
@@ -322,7 +322,7 @@ class FedAvgClient:
 
         for epoch in range(self.config.local_epochs):
             epoch_loss = 0.0
-            
+
             for batch_idx, (features, labels) in enumerate(self.dataloader):
                 features = features.to(self.device)
                 labels = labels.to(self.device)
@@ -334,7 +334,7 @@ class FedAvgClient:
                 optimizer.step()
 
                 epoch_loss += loss.item()
-                
+
                 # Track accuracy
                 preds = outputs.argmax(dim=1)
                 total_correct += (preds == labels).sum().item()
@@ -373,7 +373,7 @@ class FedAvgServer:
         self.clients = clients
         self.config = config
         self.device = device or torch.device("cpu")
-        
+
         self.model.to(self.device)
         self.history: list[RoundMetrics] = []
 
@@ -397,7 +397,7 @@ class FedAvgServer:
     ) -> None:
         """Aggregate client updates using weighted averaging."""
         total_samples = sum(u["num_samples"] for u in client_updates)
-        
+
         if total_samples == 0:
             logger.warning("No samples in client updates")
             return
@@ -408,7 +408,7 @@ class FedAvgServer:
 
         for key in global_state.keys():
             new_state[key] = torch.zeros_like(global_state[key], dtype=torch.float32)
-            
+
             for update in client_updates:
                 weight = update["num_samples"] / total_samples
                 new_state[key] += weight * update["state_dict"][key].float()
@@ -423,7 +423,7 @@ class FedAvgServer:
 
         # Distribute global model and collect updates
         client_updates = []
-        
+
         for client in selected_clients:
             # Client receives current global model
             update = client.train(self.model, round_num)
@@ -474,7 +474,7 @@ class FedAvgServer:
         """Evaluate global model on test data."""
         self.model.eval()
         loader = DataLoader(test_data, batch_size=128)
-        
+
         total_loss = 0.0
         total_correct = 0
         total_samples = 0
@@ -483,10 +483,10 @@ class FedAvgServer:
             for features, labels in loader:
                 features = features.to(self.device)
                 labels = labels.to(self.device)
-                
+
                 outputs = self.model(features)
                 loss = F.cross_entropy(outputs, labels)
-                
+
                 total_loss += loss.item() * labels.size(0)
                 preds = outputs.argmax(dim=1)
                 total_correct += (preds == labels).sum().item()
@@ -510,29 +510,29 @@ def generate_federated_data(
 ) -> list[Dataset]:
     """Generate non-IID data for clients using Dirichlet."""
     np.random.seed(42)
-    
+
     # Dirichlet distribution for label proportions
     label_distributions = np.random.dirichlet(
         [alpha] * num_classes,
         num_clients,
     )
-    
+
     datasets = []
-    
+
     for client_id in range(num_clients):
         labels = np.random.choice(
             num_classes,
             size=samples_per_client,
             p=label_distributions[client_id],
         )
-        
+
         features = np.random.randn(samples_per_client, feature_dim).astype(np.float32)
         for i, label in enumerate(labels):
             features[i, label % feature_dim] += 2.0
             features[i, (label * 3) % feature_dim] += 1.5
-        
+
         datasets.append(SimpleDataset(features, labels))
-    
+
     return datasets
 
 
@@ -547,26 +547,26 @@ def run_fedavg_experiment(
         client_fraction=0.1,
         local_epochs=5,
     )
-    
+
     # Generate data
     client_datasets = generate_federated_data(
         num_clients=config.num_clients,
         alpha=alpha,
     )
-    
+
     # Create model
     model = create_model(input_dim=32, num_classes=10)
-    
+
     # Create clients
     clients = [
         FedAvgClient(i, dataset, config)
         for i, dataset in enumerate(client_datasets)
     ]
-    
+
     # Create server and train
     server = FedAvgServer(model, clients, config)
     history = server.train()
-    
+
     return {
         "config": config,
         "history": history,

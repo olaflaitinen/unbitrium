@@ -199,23 +199,23 @@ class PairwiseMasking:
     ) -> dict[str, torch.Tensor]:
         """Compute total mask for a client."""
         masks = {}
-        
+
         for name, shape in param_shapes.items():
             total_mask = torch.zeros(shape)
-            
+
             for other_id in participating:
                 if other_id == client_id:
                     continue
-                
+
                 mask = self.mask_gen.generate_mask(client_id, other_id, shape)
-                
+
                 if client_id < other_id:
                     total_mask += mask  # Add if we're the smaller ID
                 else:
                     total_mask -= mask  # Subtract if we're the larger ID
-            
+
             masks[name] = total_mask
-        
+
         return masks
 
     def mask_update(
@@ -227,11 +227,11 @@ class PairwiseMasking:
         """Mask client's update."""
         param_shapes = {k: v.shape for k, v in update.items()}
         masks = self.compute_mask(client_id, participating, param_shapes)
-        
+
         masked_update = {}
         for name, value in update.items():
             masked_update[name] = value + masks[name]
-        
+
         return masked_update
 
     def verify_aggregation(
@@ -280,7 +280,7 @@ class SecAggClient:
     def train(self, model: nn.Module) -> dict[str, torch.Tensor]:
         """Train and return raw update."""
         initial_state = {k: v.clone() for k, v in model.state_dict().items()}
-        
+
         local_model = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local_model.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)

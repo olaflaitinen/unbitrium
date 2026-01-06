@@ -114,30 +114,30 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BlockchainConfig:
     """Configuration for blockchain-FL."""
-    
+
     num_rounds: int = 30
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Blockchain parameters
     stake_required: float = 100.0
     reward_per_round: float = 10.0
     validation_threshold: int = 3  # Min validators
-    
+
     seed: int = 42
 
 
 class Block:
     """A block in the FL chain."""
-    
+
     def __init__(
         self,
         index: int,
@@ -153,9 +153,9 @@ class Block:
         self.model_hash = model_hash
         self.client_contributions = client_contributions
         self.timestamp = timestamp
-        
+
         self.hash = self.compute_hash()
-    
+
     def compute_hash(self) -> str:
         """Compute block hash."""
         data = f"{self.index}{self.previous_hash}{self.round_num}"
@@ -165,14 +165,14 @@ class Block:
 
 class FLBlockchain:
     """Simple blockchain for FL."""
-    
+
     def __init__(self):
         self.chain: List[Block] = []
         self.pending_updates: List[Dict] = []
-        
+
         # Create genesis block
         self._create_genesis()
-    
+
     def _create_genesis(self) -> None:
         """Create genesis block."""
         genesis = Block(
@@ -184,11 +184,11 @@ class FLBlockchain:
             timestamp=time.time()
         )
         self.chain.append(genesis)
-    
+
     def add_update(self, update: Dict) -> None:
         """Add pending update."""
         self.pending_updates.append(update)
-    
+
     def create_block(
         self,
         round_num: int,
@@ -206,33 +206,33 @@ class FLBlockchain:
         )
         self.chain.append(block)
         self.pending_updates = []
-        
+
         return block
-    
+
     def is_valid(self) -> bool:
         """Validate chain integrity."""
         for i in range(1, len(self.chain)):
             current = self.chain[i]
             previous = self.chain[i - 1]
-            
+
             if current.previous_hash != previous.hash:
                 return False
             if current.hash != current.compute_hash():
                 return False
-        
+
         return True
 
 
 class TokenLedger:
     """Token management for incentives."""
-    
+
     def __init__(self, num_clients: int, initial_balance: float = 1000.0):
         self.balances: Dict[int, float] = {
             i: initial_balance for i in range(num_clients)
         }
         self.staked: Dict[int, float] = {i: 0.0 for i in range(num_clients)}
         self.total_rewards: Dict[int, float] = {i: 0.0 for i in range(num_clients)}
-    
+
     def stake(self, client_id: int, amount: float) -> bool:
         """Stake tokens to participate."""
         if self.balances[client_id] >= amount:
@@ -240,24 +240,24 @@ class TokenLedger:
             self.staked[client_id] += amount
             return True
         return False
-    
+
     def unstake(self, client_id: int) -> float:
         """Unstake all tokens."""
         amount = self.staked[client_id]
         self.staked[client_id] = 0
         self.balances[client_id] += amount
         return amount
-    
+
     def reward(self, client_id: int, amount: float) -> None:
         """Reward client."""
         self.balances[client_id] += amount
         self.total_rewards[client_id] += amount
-    
+
     def slash(self, client_id: int, amount: float) -> None:
         """Slash stake for misbehavior."""
         slash_amount = min(amount, self.staked[client_id])
         self.staked[client_id] -= slash_amount
-    
+
     def is_staked(self, client_id: int, min_stake: float) -> bool:
         """Check if client has minimum stake."""
         return self.staked[client_id] >= min_stake
@@ -265,7 +265,7 @@ class TokenLedger:
 
 class BlockchainDataset(Dataset):
     """Dataset for blockchain FL."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -275,23 +275,23 @@ class BlockchainDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class BlockchainModel(nn.Module):
     """Model for blockchain FL."""
-    
+
     def __init__(self, config: BlockchainConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -299,10 +299,10 @@ class BlockchainModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
-    
+
     def compute_hash(self) -> str:
         """Compute model hash for verification."""
         hasher = hashlib.sha256()
@@ -313,7 +313,7 @@ class BlockchainModel(nn.Module):
 
 class BlockchainClient:
     """Client in blockchain-based FL."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -325,42 +325,42 @@ class BlockchainClient:
         self.dataset = dataset
         self.config = config
         self.ledger = ledger
-    
+
     def stake(self) -> bool:
         """Stake to participate."""
         return self.ledger.stake(self.client_id, self.config.stake_required)
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train and submit update."""
         if not self.ledger.is_staked(self.client_id, self.config.stake_required):
             return {"status": "not_staked", "client_id": self.client_id}
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -368,7 +368,7 @@ class BlockchainClient:
             "client_id": self.client_id,
             "status": "success"
         }
-    
+
     def validate(
         self,
         model: nn.Module,
@@ -378,27 +378,27 @@ class BlockchainClient:
         # Create model with update
         test_model = copy.deepcopy(model)
         test_model.load_state_dict(update["state_dict"])
-        
+
         # Evaluate on local data
         test_model.eval()
         loader = DataLoader(self.dataset, batch_size=64)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in loader:
                 pred = test_model(x).argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         accuracy = correct / total
         is_valid = accuracy > 0.1  # Basic validity check
-        
+
         return is_valid, accuracy
 
 
 class BlockchainServer:
     """Decentralized server using blockchain."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -410,11 +410,11 @@ class BlockchainServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.blockchain = FLBlockchain()
         self.ledger = clients[0].ledger  # Shared ledger
         self.history: List[Dict] = []
-    
+
     def validate_updates(
         self,
         updates: List[Dict],
@@ -422,18 +422,18 @@ class BlockchainServer:
     ) -> List[Dict]:
         """Validate updates using other clients."""
         valid_updates = []
-        
+
         for update in updates:
             if update.get("status") != "success":
                 continue
-            
+
             # Get validations
             validations = []
             for validator in validators:
                 if validator.client_id != update["client_id"]:
                     is_valid, acc = validator.validate(self.model, update)
                     validations.append(is_valid)
-            
+
             # Require threshold validations
             if sum(validations) >= self.config.validation_threshold:
                 valid_updates.append(update)
@@ -441,26 +441,26 @@ class BlockchainServer:
                 # Slash stake for invalid update
                 self.ledger.slash(update["client_id"], 10.0)
                 logger.warning(f"Client {update['client_id']} update rejected")
-        
+
         return valid_updates
-    
+
     def aggregate(self, updates: List[Dict]) -> str:
         """Aggregate and record on blockchain."""
         if not updates:
             return ""
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
         return self.model.compute_hash()
-    
+
     def distribute_rewards(
         self,
         updates: List[Dict],
@@ -469,68 +469,68 @@ class BlockchainServer:
         """Distribute rewards to contributors."""
         if not updates:
             return {}
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         contributions = {}
-        
+
         for update in updates:
             client_id = update["client_id"]
             contribution = update["num_samples"] / total_samples
             reward = self.config.reward_per_round * contribution
-            
+
             self.ledger.reward(client_id, reward)
             contributions[client_id] = contribution
-        
+
         return contributions
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in loader:
                 pred = self.model(x).argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         """Run blockchain-based FL."""
         logger.info(f"Starting blockchain FL with {len(self.clients)} clients")
-        
+
         # All clients stake
         for client in self.clients:
             client.stake()
-        
+
         for round_num in range(self.config.num_rounds):
             # Select clients
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             # Collect updates
             updates = [c.train(self.model) for c in selected]
-            
+
             # Validate
             validators = [c for c in self.clients if c not in selected]
             valid_updates = self.validate_updates(updates, validators)
-            
+
             # Aggregate
             model_hash = self.aggregate(valid_updates)
-            
+
             # Distribute rewards
             contributions = self.distribute_rewards(valid_updates, round_num)
-            
+
             # Record on blockchain
             if valid_updates:
                 self.blockchain.create_block(round_num, model_hash, contributions)
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -538,13 +538,13 @@ class BlockchainServer:
                 "total_updates": len(updates)
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}, "
                     f"chain valid={self.blockchain.is_valid()}"
                 )
-        
+
         return self.history
 
 
@@ -553,28 +553,28 @@ def main():
     print("=" * 60)
     print("Tutorial 138: FL with Blockchain")
     print("=" * 60)
-    
+
     config = BlockchainConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Shared ledger
     ledger = TokenLedger(config.num_clients)
-    
+
     # Create clients
     clients = []
     for i in range(config.num_clients):
         dataset = BlockchainDataset(client_id=i, dim=config.input_dim, seed=config.seed)
         client = BlockchainClient(i, dataset, config, ledger)
         clients.append(client)
-    
+
     test_data = BlockchainDataset(client_id=999, n=300, seed=999)
     model = BlockchainModel(config)
-    
+
     # Train
     server = BlockchainServer(model, clients, test_data, config)
     history = server.train()
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("Training Complete")

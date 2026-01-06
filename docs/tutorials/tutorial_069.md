@@ -205,7 +205,7 @@ class AuditLogger:
         """Log an audit entry."""
         self._entry_counter += 1
         entry_id = f"AUD-{self._entry_counter:06d}"
-        
+
         entry = AuditEntry(
             entry_id=entry_id,
             timestamp=datetime.now(),
@@ -247,7 +247,7 @@ class ConsentManager:
             timestamp=datetime.now(),
         )
         self.consents[subject_id] = consent
-        
+
         self.audit_logger.log(
             action="consent_granted",
             actor=subject_id,
@@ -260,7 +260,7 @@ class ConsentManager:
         """Record consent withdrawal."""
         if subject_id in self.consents:
             self.consents[subject_id].consent_type = ConsentType.WITHDRAWN
-            
+
             self.audit_logger.log(
                 action="consent_withdrawn",
                 actor=subject_id,
@@ -274,7 +274,7 @@ class ConsentManager:
         """Check if subject has valid consent for purpose."""
         if subject_id not in self.consents:
             return False
-        
+
         consent = self.consents[subject_id]
         return consent.is_valid() and purpose in consent.purposes
 
@@ -337,17 +337,17 @@ class DataProtectionImpactAssessment:
         report = f"# Data Protection Impact Assessment\n\n"
         report += f"**Project:** {self.project_name}\n"
         report += f"**Date:** {self.created_at.isoformat()}\n\n"
-        
+
         report += "## Identified Risks\n\n"
         for i, risk in enumerate(self.risks):
             report += f"{i+1}. {risk['description']}\n"
             report += f"   - Likelihood: {risk['likelihood']}\n"
             report += f"   - Impact: {risk['impact']}\n\n"
-        
+
         report += "## Mitigations\n\n"
         for mit in self.mitigations:
             report += f"- Risk {mit['risk_index']}: {mit['description']} ({mit['status']})\n"
-        
+
         return report
 ```
 
@@ -420,7 +420,7 @@ class CompliantClient:
         """Check all subjects have valid consent."""
         if not self.config.require_consent:
             return True
-        
+
         for subject_id in self.subject_ids:
             if not self.consent_manager.has_valid_consent(subject_id, "fl_training"):
                 return False
@@ -482,11 +482,11 @@ class CompliantClient:
             details={},
             data_subjects=self.subject_ids,
         )
-        
+
         # Clear local data
         self.dataset = None
         self.subject_ids = []
-        
+
         self.audit_logger.log(
             action="erasure_completed",
             actor=self.client_id,
@@ -509,7 +509,7 @@ class CompliantServer:
         self.config = config
         self.audit_logger = AuditLogger()
         self.consent_manager = ConsentManager()
-        
+
         # DPIA
         self.dpia = DataProtectionImpactAssessment("FL Training")
         self._setup_dpia()
@@ -521,13 +521,13 @@ class CompliantServer:
             "Medium", "High", "Privacy"
         )
         self.dpia.add_mitigation(0, "Differential privacy", "Implemented")
-        
+
         self.dpia.add_risk(
             "Inference attacks on model updates",
             "Medium", "Medium", "Privacy"
         )
         self.dpia.add_mitigation(1, "Secure aggregation", "Planned")
-        
+
         self.dpia.add_data_flow(
             "Client", "Server",
             ["Model gradients"],
@@ -537,7 +537,7 @@ class CompliantServer:
     def train(self) -> List[Dict]:
         """Run compliant FL training."""
         history = []
-        
+
         self.audit_logger.log(
             action="fl_session_started",
             actor="server",
@@ -546,7 +546,7 @@ class CompliantServer:
 
         for round_num in range(self.config.num_rounds):
             updates = []
-            
+
             for client in self.clients:
                 update = client.train(self.model)
                 if update:
@@ -592,7 +592,7 @@ def demo_compliant_fl():
     for i in range(config.num_clients):
         subject_id = f"subject_{i}"
         consent_manager.grant_consent(subject_id, ["fl_training"])
-        
+
         dataset = SimpleDataset(100, subject_id)
         client = CompliantClient(
             f"client_{i}",

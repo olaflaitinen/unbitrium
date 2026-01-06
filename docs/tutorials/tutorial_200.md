@@ -107,32 +107,32 @@ mindmap
 flowchart TB
     subgraph "Research Frontiers"
         direction TB
-        
+
         subgraph "Foundation Models"
             LLM[Large Language Models]
             VLM[Vision-Language Models]
             GEN[Generative AI]
         end
-        
+
         subgraph "Privacy Advances"
             HE[Homomorphic Encryption]
             MPC[Secure MPC]
             ZKP[Zero-Knowledge Proofs]
         end
-        
+
         subgraph "Systems"
             DECEN[Decentralized FL]
             CROSS[Cross-Domain FL]
             CONT[Continual Learning]
         end
-        
+
         subgraph "Theory"
             OPT[Optimization Theory]
             STAT[Statistical Learning]
             GAME[Game Theory]
         end
     end
-    
+
     LLM --> DECEN
     HE --> CROSS
     OPT --> CONT
@@ -183,7 +183,7 @@ class FoundationModelConfig:
 
 class LoRAAdapter(nn.Module):
     """Low-Rank Adaptation for efficient fine-tuning.
-    
+
     LoRA enables federated learning of very large models
     by only training low-rank decomposed adapters.
     """
@@ -219,7 +219,7 @@ class LoRAAdapter(nn.Module):
 
 class FederatedLoRA:
     """Federated learning with LoRA adapters.
-    
+
     Only adapter weights are communicated, reducing bandwidth
     by 100-1000x compared to full model updates.
     """
@@ -333,7 +333,7 @@ class SecureProtocol(Protocol):
 
 class SimulatedHomomorphicEncryption:
     """Simulated homomorphic encryption for research.
-    
+
     Note: This is a simulation for educational purposes.
     Real HE requires specialized libraries like SEAL or TenSEAL.
     """
@@ -382,7 +382,7 @@ class SimulatedHomomorphicEncryption:
 
 class ZeroKnowledgeVerification:
     """Zero-knowledge proofs for model integrity.
-    
+
     Allows verification of computation correctness
     without revealing the underlying data.
     """
@@ -470,7 +470,7 @@ def research_direction_verifiable_fl():
 
 class DecentralizedNode:
     """Node in a fully decentralized FL network.
-    
+
     No central server - nodes communicate peer-to-peer.
     """
 
@@ -494,7 +494,7 @@ class DecentralizedNode:
 
     def gossip_aggregation(self) -> dict[str, torch.Tensor]:
         """Perform gossip-based aggregation with neighbors.
-        
+
         Each node averages its model with received neighbor models.
         """
         local_state = self.model.state_dict()

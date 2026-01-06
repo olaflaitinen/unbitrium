@@ -192,7 +192,7 @@ class ClientSignature:
         for p in model.parameters():
             if p.grad is not None:
                 signature.append(p.grad.flatten().detach().numpy())
-        
+
         model.zero_grad()
         return np.concatenate(signature)
 
@@ -221,7 +221,7 @@ class ClientClusterer:
             from sklearn.cluster import KMeans
             kmeans = KMeans(n_clusters=self.num_clusters, random_state=42)
             self.cluster_assignments = kmeans.fit_predict(signatures)
-        
+
         return self.cluster_assignments
 
     def get_cluster_members(self, cluster_id: int) -> list[int]:
@@ -314,10 +314,10 @@ class ClusteredFLServer:
         """Discover client clusters during warmup."""
         # Train global model for warmup
         global_model = self.model_fn()
-        
+
         for round_num in range(self.config.warmup_rounds):
             updates = [c.train(global_model) for c in self.clients]
-            
+
             # Aggregate
             total = sum(u["num_samples"] for u in updates)
             new_state = {}
@@ -331,7 +331,7 @@ class ClusteredFLServer:
         # Extract signatures
         signature_extractor = ClientSignature(self.config.similarity_metric)
         signatures = []
-        
+
         for client in self.clients:
             sig = signature_extractor.extract(
                 copy.deepcopy(global_model),
@@ -340,10 +340,10 @@ class ClusteredFLServer:
             signatures.append(sig)
 
         signatures = np.array(signatures)
-        
+
         # Cluster
         assignments = self.clusterer.fit(signatures)
-        
+
         # Assign clusters to clients
         for i, client in enumerate(self.clients):
             client.cluster_id = assignments[i]
@@ -373,7 +373,7 @@ class ClusteredFLServer:
                 # Select clients from this cluster
                 num_select = max(1, int(len(members) * self.config.client_fraction))
                 selected = np.random.choice(members, size=num_select, replace=False)
-                
+
                 updates = [self.clients[i].train(self.cluster_models[cluster_id]) for i in selected]
 
                 # Aggregate within cluster

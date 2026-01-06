@@ -192,25 +192,25 @@ class RealisticConfig:
     num_clients: int = 100
     num_classes: int = 10
     feature_dim: int = 32
-    
+
     # Label heterogeneity
     label_alpha: float = 0.5
-    
+
     # Feature heterogeneity
     noise_min: float = 0.2
     noise_max: float = 1.0
     scale_min: float = 0.8
     scale_max: float = 1.2
-    
+
     # Quantity heterogeneity
     min_samples: int = 50
     max_samples: int = 2000
     quantity_skew: float = 1.5  # Power-law exponent
-    
+
     # Temporal heterogeneity
     drift_clients: float = 0.3  # Fraction with drift
     drift_magnitude: float = 0.5
-    
+
     seed: int = 42
 
 
@@ -257,13 +257,13 @@ class RealisticScenarioGenerator:
     def generate_profiles(self) -> list[ClientProfile]:
         """Generate client profiles with all heterogeneities."""
         profiles = []
-        
+
         # Generate label distributions (Dirichlet)
         label_dists = np.random.dirichlet(
             [self.config.label_alpha] * self.config.num_classes,
             self.config.num_clients,
         )
-        
+
         # Generate noise levels (linear spread)
         noise_levels = np.linspace(
             self.config.noise_min,
@@ -271,14 +271,14 @@ class RealisticScenarioGenerator:
             self.config.num_clients,
         )
         np.random.shuffle(noise_levels)
-        
+
         # Generate scale factors
         scale_factors = np.random.uniform(
             self.config.scale_min,
             self.config.scale_max,
             self.config.num_clients,
         )
-        
+
         # Generate sample counts (power-law)
         ranks = np.arange(1, self.config.num_clients + 1)
         raw_samples = 1.0 / (ranks ** self.config.quantity_skew)
@@ -293,13 +293,13 @@ class RealisticScenarioGenerator:
             self.config.max_samples,
         )
         np.random.shuffle(sample_counts)
-        
+
         # Assign drift
         num_drift = int(self.config.num_clients * self.config.drift_clients)
         drift_clients = np.zeros(self.config.num_clients, dtype=bool)
         drift_clients[:num_drift] = True
         np.random.shuffle(drift_clients)
-        
+
         for i in range(self.config.num_clients):
             profile = ClientProfile(
                 client_id=i,
@@ -311,7 +311,7 @@ class RealisticScenarioGenerator:
                 drift_magnitude=self.config.drift_magnitude if drift_clients[i] else 0.0,
             )
             profiles.append(profile)
-        
+
         self.client_profiles = profiles
         return profiles
 
@@ -329,12 +329,12 @@ class RealisticScenarioGenerator:
         """
         if profiles is None:
             profiles = self.client_profiles
-        
+
         if not profiles:
             profiles = self.generate_profiles()
-        
+
         client_data = []
-        
+
         for profile in profiles:
             # Sample labels according to distribution
             labels = np.random.choice(
@@ -342,11 +342,11 @@ class RealisticScenarioGenerator:
                 size=profile.num_samples,
                 p=profile.label_distribution,
             )
-            
+
             # Generate features
             features = self._generate_features(labels, profile)
             client_data.append((features, labels))
-        
+
         return client_data
 
     def _generate_features(
@@ -359,22 +359,22 @@ class RealisticScenarioGenerator:
             (len(labels), self.config.feature_dim),
             dtype=np.float32,
         )
-        
+
         for i, label in enumerate(labels):
             # Base class pattern
             class_mean = np.zeros(self.config.feature_dim)
             class_mean[label % self.config.feature_dim] = 2.0
             class_mean[(label * 3) % self.config.feature_dim] = 1.5
-            
+
             # Apply drift for some samples
             if profile.has_drift and np.random.rand() < 0.5:
                 shift = np.ones(self.config.feature_dim) * profile.drift_magnitude
                 class_mean += shift
-            
+
             # Add noise and scale
             noise = np.random.randn(self.config.feature_dim) * profile.noise_level
             features[i] = (class_mean + noise) * profile.scale_factor
-        
+
         return features
 
 
@@ -433,18 +433,18 @@ class ScenarioAnalyzer:
         """Comprehensive scenario analysis."""
         # Label heterogeneity
         label_kl_divs = self._compute_label_kl(profiles)
-        
+
         # Feature heterogeneity
         feature_stats = self._compute_feature_stats(client_data)
-        
+
         # Quantity heterogeneity
         quantity_stats = self._compute_quantity_stats(profiles)
-        
+
         # Overall heterogeneity score
         heterogeneity_score = self._compute_overall_score(
             label_kl_divs, feature_stats, quantity_stats
         )
-        
+
         return {
             "label": {
                 "avg_kl_divergence": np.mean(label_kl_divs),
@@ -466,12 +466,12 @@ class ScenarioAnalyzer:
         """Compute label KL divergences from uniform."""
         uniform = np.ones(self.num_classes) / self.num_classes
         kl_divs = []
-        
+
         for profile in profiles:
             dist = np.maximum(profile.label_distribution, 1e-10)
             kl = np.sum(dist * np.log(dist / uniform))
             kl_divs.append(kl)
-        
+
         return np.array(kl_divs)
 
     def _compute_feature_stats(
@@ -481,7 +481,7 @@ class ScenarioAnalyzer:
         """Compute feature distribution statistics."""
         means = [features.mean() for features, _ in client_data]
         stds = [features.std() for features, _ in client_data]
-        
+
         return {
             "mean_range": max(means) - min(means),
             "std_range": max(stds) - min(stds),
@@ -495,13 +495,13 @@ class ScenarioAnalyzer:
     ) -> dict[str, float]:
         """Compute quantity distribution statistics."""
         counts = [p.num_samples for p in profiles]
-        
+
         # Gini coefficient
         sorted_counts = np.sort(counts)
         n = len(counts)
         index = np.arange(1, n + 1)
         gini = (2 * np.sum(index * sorted_counts) / (n * np.sum(sorted_counts))) - (n + 1) / n
-        
+
         return {
             "total_samples": sum(counts),
             "mean_samples": np.mean(counts),
@@ -523,7 +523,7 @@ class ScenarioAnalyzer:
         label_score = min(1.0, np.mean(label_kl) / 2.0)
         feature_score = min(1.0, feature_stats["mean_cv"] + feature_stats["std_cv"])
         quantity_score = min(1.0, quantity_stats["gini_coefficient"])
-        
+
         # Weighted average
         return 0.4 * label_score + 0.3 * feature_score + 0.3 * quantity_score
 ```
@@ -561,14 +561,14 @@ def train_realistic_scenario(
         generator = CrossDeviceScenario(num_clients=100)
     else:
         generator = CrossSiloScenario(num_clients=10)
-    
+
     profiles = generator.generate_profiles()
     client_data = generator.generate_data(profiles)
-    
+
     # Analyze
     analyzer = ScenarioAnalyzer(generator.config.num_classes)
     analysis = analyzer.analyze(profiles, client_data)
-    
+
     print(f"Scenario: {scenario_type}")
     print(f"Overall heterogeneity: {analysis['overall_heterogeneity_score']:.3f}")
     print(f"Label KL: {analysis['label']['avg_kl_divergence']:.3f}")
@@ -577,7 +577,7 @@ def train_realistic_scenario(
     # Initialize model
     feature_dim = generator.config.feature_dim
     num_classes = generator.config.num_classes
-    
+
     global_model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),
@@ -585,13 +585,13 @@ def train_realistic_scenario(
     )
 
     accuracies = []
-    
+
     # Client selection for cross-device (sample subset)
     clients_per_round = min(10, len(client_data))
 
     for round_num in range(num_rounds):
         global_state = global_model.state_dict()
-        
+
         # Select clients
         if scenario_type == "cross_device":
             selected_indices = np.random.choice(
@@ -601,14 +601,14 @@ def train_realistic_scenario(
             )
         else:
             selected_indices = list(range(len(client_data)))
-        
+
         updates = []
 
         for idx in selected_indices:
             features, labels = client_data[idx]
             if len(labels) == 0:
                 continue
-                
+
             local_model = nn.Sequential(
                 nn.Linear(feature_dim, 64),
                 nn.ReLU(),
@@ -647,7 +647,7 @@ def train_realistic_scenario(
         global_model.eval()
         correct = 0
         total = 0
-        
+
         with torch.no_grad():
             for features, labels in client_data:
                 if len(labels) == 0:
@@ -674,24 +674,24 @@ def train_realistic_scenario(
 def compare_scenarios() -> dict[str, Any]:
     """Compare cross-device and cross-silo scenarios."""
     results = {}
-    
+
     for scenario in ["cross_device", "cross_silo"]:
         print(f"\n{'='*50}")
         print(f"Scenario: {scenario.upper()}")
         print('='*50)
-        
+
         result = train_realistic_scenario(scenario, num_rounds=30)
         results[scenario] = result
-    
+
     print("\n" + "="*50)
     print("Summary")
     print("="*50)
-    
+
     for name, result in results.items():
         print(f"{name}: "
               f"heterogeneity={result['analysis']['overall_heterogeneity_score']:.3f}, "
               f"accuracy={result['final_accuracy']:.4f}")
-    
+
     return results
 
 

@@ -419,12 +419,12 @@ class LabelSkewAnalyzer:
         """Compute KL divergence from global."""
         kl_divs = []
         global_dist = np.maximum(global_dist, 1e-10)
-        
+
         for dist in distributions:
             dist = np.maximum(dist, 1e-10)
             kl = np.sum(dist * np.log(dist / global_dist))
             kl_divs.append(kl)
-        
+
         return np.array(kl_divs)
 
     def _compute_js_divergences(
@@ -435,17 +435,17 @@ class LabelSkewAnalyzer:
         """Compute Jensen-Shannon divergence."""
         js_divs = []
         global_dist = np.maximum(global_dist, 1e-10)
-        
+
         for dist in distributions:
             dist = np.maximum(dist, 1e-10)
             m = 0.5 * (dist + global_dist)
             m = np.maximum(m, 1e-10)
-            
+
             kl_dm = np.sum(dist * np.log(dist / m))
             kl_gm = np.sum(global_dist * np.log(global_dist / m))
             js = 0.5 * (kl_dm + kl_gm)
             js_divs.append(js)
-        
+
         return np.array(js_divs)
 
     def _compute_class_coverage(self, distributions: np.ndarray) -> np.ndarray:
@@ -470,7 +470,7 @@ def visualize_label_skew(
 ) -> None:
     """Visualize label distributions as heatmap."""
     import matplotlib.pyplot as plt
-    
+
     plt.figure(figsize=(12, 6))
     plt.imshow(distributions, aspect='auto', cmap='YlOrRd')
     plt.colorbar(label='Proportion')
@@ -555,7 +555,7 @@ def train_with_label_skew(
 ) -> list[float]:
     """Train federated model and track accuracy."""
     feature_dim = client_data[0][0].shape[1]
-    
+
     global_model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),

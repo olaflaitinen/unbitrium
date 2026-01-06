@@ -241,7 +241,7 @@ class ModelRegistry:
     ) -> str:
         """Register a model version."""
         state = {k: v.cpu() for k, v in model.state_dict().items()}
-        
+
         self.models[version] = {
             "state_dict": state,
             "metadata": metadata or {},
@@ -417,11 +417,11 @@ class ProductionFLServer:
         self.model = model
         self.clients = {c.client_id: c for c in clients}
         self.config = config
-        
+
         self.metrics = MetricsCollector()
         self.model_registry = ModelRegistry()
         self.task_queue = TaskQueue()
-        
+
         # Register initial model
         self.model_registry.register(model, "v0", {"initial": True})
 
@@ -448,11 +448,11 @@ class ProductionFLServer:
     def execute_round(self, round_num: int) -> Dict:
         """Execute a training round."""
         start_time = time.time()
-        
+
         # Select clients
         selected = self.select_clients(round_num)
         tasks = self.create_tasks(round_num, selected)
-        
+
         # Execute tasks (simulated parallel)
         results = []
         for task in tasks:
@@ -475,7 +475,7 @@ class ProductionFLServer:
                 "aggregation_time_ms",
                 (time.time() - agg_start) * 1000
             )
-            
+
             # Register new version
             version = f"v{round_num + 1}"
             self.model_registry.register(
@@ -505,17 +505,17 @@ class ProductionFLServer:
     def train(self) -> List[Dict]:
         """Run production training."""
         history = []
-        
+
         for round_num in range(self.config.num_rounds):
             result = self.execute_round(round_num)
             history.append(result)
-            
+
             if (round_num + 1) % 10 == 0:
                 print(f"Round {round_num + 1}: {result['clients']} clients")
 
         print(f"\nMetrics Summary: {self.metrics.get_summary()}")
         print(f"Model Versions: {self.model_registry.list_versions()}")
-        
+
         return history
 
 

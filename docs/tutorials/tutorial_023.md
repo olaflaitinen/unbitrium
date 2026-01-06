@@ -251,7 +251,7 @@ class ReptileOptimizer:
     ) -> list[torch.Tensor]:
         """Train on task and return difference."""
         initial_params = [p.data.clone() for p in self.model.parameters()]
-        
+
         # Clone and train
         local_model = self.model.clone()
         optimizer = torch.optim.SGD(local_model.parameters(), lr=self.config.inner_lr)
@@ -265,7 +265,7 @@ class ReptileOptimizer:
                 optimizer.step()
 
         final_params = [p.data.clone() for p in local_model.parameters()]
-        
+
         return initial_params, final_params
 ```
 
@@ -281,7 +281,7 @@ class MetaFLClient:
     ):
         self.client_id = client_id
         self.config = config
-        
+
         # Split into support and query
         n = len(dataset)
         val_size = int(n * config.val_ratio)
@@ -341,7 +341,7 @@ class MetaFLServer:
     def train_round_reptile(self, selected: list[MetaFLClient]) -> dict:
         """Reptile training round."""
         diffs = []
-        
+
         for client in selected:
             initial, final = self.optimizer.task_update(client.get_train_loader())
             diffs.append((initial, final))
@@ -360,7 +360,7 @@ class MetaFLServer:
     def train_round_maml(self, selected: list[MetaFLClient]) -> dict:
         """MAML training round."""
         meta_grads = []
-        
+
         for client in selected:
             # Inner loop
             adapted = self.optimizer.inner_loop(client.get_train_loader())
@@ -379,7 +379,7 @@ class MetaFLServer:
     def train(self) -> list[dict]:
         for round_num in range(self.config.num_rounds):
             selected = self.select_clients()
-            
+
             if self.config.method == "reptile":
                 metrics = self.train_round_reptile(selected)
             else:
@@ -411,7 +411,7 @@ def run_meta_fl_experiment() -> dict:
         datasets.append(SimpleDataset(features, labels))
 
     results = {}
-    
+
     for method in ["reptile", "maml"]:
         print(f"\nMethod: {method}")
         config = MetaFLConfig(method=method)

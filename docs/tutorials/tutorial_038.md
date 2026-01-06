@@ -218,7 +218,7 @@ class ConvergenceMonitor:
         for param in model.parameters():
             if param.grad is not None:
                 grad_norm += param.grad.norm().item() ** 2
-        
+
         model.zero_grad()
         return np.sqrt(grad_norm)
 
@@ -264,7 +264,7 @@ class ConvergenceMonitor:
         # Fit log-linear model: log(loss) = a * log(t) + b
         t = np.arange(1, len(self.loss_history) + 1)
         losses = np.array(self.loss_history)
-        
+
         # Filter valid losses
         valid = losses > 0
         if valid.sum() < 10:
@@ -347,7 +347,7 @@ class ConvergenceServer:
         self.model.eval()
         total_loss = 0.0
         total_samples = 0
-        
+
         for dataset in self.datasets:
             loader = DataLoader(dataset, batch_size=128)
             with torch.no_grad():
@@ -355,19 +355,19 @@ class ConvergenceServer:
                     loss = F.cross_entropy(self.model(features), labels)
                     total_loss += loss.item() * len(labels)
                     total_samples += len(labels)
-        
+
         return total_loss / total_samples
 
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -381,7 +381,7 @@ class ConvergenceServer:
             self.history.append(metrics)
 
             converged, reason = self.monitor.is_converged()
-            
+
             if (round_num + 1) % 20 == 0:
                 print(f"Round {round_num + 1}: loss={loss:.4f}, "
                       f"grad={metrics['grad_norm']:.4f}")

@@ -148,7 +148,7 @@ class DefenseType(Enum):
 @dataclass
 class PoisonConfig:
     """Configuration for poisoning experiments."""
-    
+
     # General
     num_rounds: int = 50
     num_clients: int = 20
@@ -157,19 +157,19 @@ class PoisonConfig:
     batch_size: int = 32
     learning_rate: float = 0.01
     seed: int = 42
-    
+
     # Attack
     attack_type: AttackType = AttackType.LABEL_FLIP
     num_malicious: int = 4  # 20% of clients
     poison_ratio: float = 1.0  # Fraction of malicious client's data to poison
     scale_factor: float = 10.0  # For gradient scaling attack
-    
+
     # Defense
     defense_type: DefenseType = DefenseType.MEDIAN
     trim_ratio: float = 0.2  # For trimmed mean
     num_krum: int = 3  # For multi-krum
     clip_norm: float = 10.0  # For norm clipping
-    
+
     # Model
     input_dim: int = 32
     hidden_dim: int = 64
@@ -178,7 +178,7 @@ class PoisonConfig:
 
 class PoisonDataset(Dataset):
     """Dataset with optional poisoning."""
-    
+
     def __init__(
         self,
         features: np.ndarray,
@@ -189,22 +189,22 @@ class PoisonDataset(Dataset):
     ):
         self.features = torch.FloatTensor(features)
         self.original_labels = torch.LongTensor(labels)
-        
+
         if poisoned and attack_type == AttackType.LABEL_FLIP:
             # Flip labels to random other class
             self.labels = (self.original_labels + 1) % num_classes
         else:
             self.labels = self.original_labels.clone()
-        
+
         self.poisoned = poisoned
-    
+
     def __len__(self): return len(self.labels)
     def __getitem__(self, idx): return self.features[idx], self.labels[idx]
 
 
 class PoisonModel(nn.Module):
     """Simple model for poisoning experiments."""
-    
+
     def __init__(self, config: PoisonConfig):
         super().__init__()
         self.network = nn.Sequential(
@@ -212,20 +212,20 @@ class PoisonModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes),
         )
-    
+
     def forward(self, x): return self.network(x)
 
 
 class RobustAggregator:
     """Implements various robust aggregation methods."""
-    
+
     def __init__(self, config: PoisonConfig):
         self.config = config
-    
+
     def _flatten_state(self, state_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Flatten state dict to single vector."""
         return torch.cat([v.flatten() for v in state_dict.values()])
-    
+
     def _unflatten_state(
         self,
         flat: torch.Tensor,
@@ -239,39 +239,39 @@ class RobustAggregator:
             result[name] = flat[offset:offset + size].view(param.shape)
             offset += size
         return result
-    
+
     def median(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Coordinate-wise median aggregation."""
         template = updates[0]["state_dict"]
         stacked = torch.stack([self._flatten_state(u["state_dict"]) for u in updates])
         median_flat = stacked.median(dim=0).values
         return self._unflatten_state(median_flat, template)
-    
+
     def trimmed_mean(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Trimmed mean aggregation."""
         template = updates[0]["state_dict"]
         stacked = torch.stack([self._flatten_state(u["state_dict"]) for u in updates])
-        
+
         n = len(updates)
         trim_count = int(n * self.config.trim_ratio)
-        
+
         if trim_count > 0:
             sorted_vals, _ = stacked.sort(dim=0)
             trimmed = sorted_vals[trim_count:n - trim_count]
         else:
             trimmed = stacked
-        
+
         mean_flat = trimmed.mean(dim=0)
         return self._unflatten_state(mean_flat, template)
-    
+
     def krum(self, updates: List[Dict], multi: bool = False) -> Dict[str, torch.Tensor]:
         """Krum / Multi-Krum aggregation."""
         n = len(updates)
         f = self.config.num_malicious
-        
+
         # Flatten all updates
         flattened = [self._flatten_state(u["state_dict"]) for u in updates]
-        
+
         # Compute pairwise distances
         scores = []
         for i in range(n):
@@ -284,7 +284,7 @@ class RobustAggregator:
             # Sum of n-f-2 smallest distances
             score = sum(distances[:n - f - 2]) if n - f - 2 > 0 else sum(distances)
             scores.append(score)
-        
+
         if multi:
             # Multi-Krum: average of m best
             m = self.config.num_krum
@@ -295,25 +295,25 @@ class RobustAggregator:
             # Krum: single best
             best_idx = np.argmin(scores)
             result_flat = flattened[best_idx]
-        
+
         return self._unflatten_state(result_flat, updates[0]["state_dict"])
-    
+
     def norm_clip(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Clip updates by norm, then average."""
         clipped = []
-        
+
         for u in updates:
             flat = self._flatten_state(u["state_dict"])
             norm = torch.norm(flat)
-            
+
             if norm > self.config.clip_norm:
                 flat = flat * (self.config.clip_norm / norm)
-            
+
             clipped.append(flat)
-        
+
         mean_flat = torch.stack(clipped).mean(dim=0)
         return self._unflatten_state(mean_flat, updates[0]["state_dict"])
-    
+
     def aggregate(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Aggregate using configured defense."""
         if self.config.defense_type == DefenseType.MEDIAN:
@@ -344,18 +344,18 @@ class RobustAggregator:
 def create_data(config: PoisonConfig) -> Tuple[List[PoisonDataset], PoisonDataset, List[int]]:
     """Create data with some malicious clients."""
     np.random.seed(config.seed)
-    
+
     malicious_ids = list(range(config.num_malicious))
-    
+
     datasets = []
     for i in range(config.num_clients):
         n = np.random.randint(80, 120)
         x = np.random.randn(n, config.input_dim).astype(np.float32)
         y = np.random.randint(0, config.num_classes, n)
-        
+
         for j in range(n):
             x[j, y[j] % config.input_dim] += 2.0
-        
+
         is_malicious = i in malicious_ids
         datasets.append(PoisonDataset(
             x, y,
@@ -363,30 +363,30 @@ def create_data(config: PoisonConfig) -> Tuple[List[PoisonDataset], PoisonDatase
             attack_type=config.attack_type,
             num_classes=config.num_classes,
         ))
-    
+
     # Test set
     test_x = np.random.randn(500, config.input_dim).astype(np.float32)
     test_y = np.random.randint(0, config.num_classes, 500)
     for j in range(500):
         test_x[j, test_y[j] % config.input_dim] += 2.0
-    
+
     return datasets, PoisonDataset(test_x, test_y), malicious_ids
 
 
 class PoisonClient:
     """Client with optional attack behavior."""
-    
+
     def __init__(self, client_id: int, dataset: PoisonDataset, config: PoisonConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
         self.is_malicious = dataset.poisoned
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         local = copy.deepcopy(model)
         opt = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -394,9 +394,9 @@ class PoisonClient:
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 opt.step()
-        
+
         state = {k: v.cpu() for k, v in local.state_dict().items()}
-        
+
         # Apply gradient-based attacks
         if self.is_malicious:
             if self.config.attack_type == AttackType.GRADIENT_SCALE:
@@ -405,13 +405,13 @@ class PoisonClient:
                 state = {k: -v for k, v in state.items()}
             elif self.config.attack_type == AttackType.RANDOM_NOISE:
                 state = {k: v + torch.randn_like(v) * 5.0 for k, v in state.items()}
-        
+
         return {"state_dict": state, "num_samples": len(self.dataset)}
 
 
 class DefenseServer:
     """Server with robust aggregation."""
-    
+
     def __init__(self, model: nn.Module, clients: List[PoisonClient],
                  test_dataset: PoisonDataset, config: PoisonConfig):
         self.model = model
@@ -420,7 +420,7 @@ class DefenseServer:
         self.config = config
         self.aggregator = RobustAggregator(config)
         self.history = []
-    
+
     def evaluate(self) -> float:
         self.model.eval()
         loader = DataLoader(self.test_dataset, batch_size=128)
@@ -430,28 +430,28 @@ class DefenseServer:
                 correct += (self.model(x).argmax(1) == y).sum().item()
                 total += len(y)
         return correct / total
-    
+
     def train(self) -> List[Dict]:
         for r in range(self.config.num_rounds):
             selected = np.random.choice(self.clients, min(self.config.clients_per_round, len(self.clients)), replace=False)
             updates = [c.train(self.model) for c in selected]
-            
+
             new_state = self.aggregator.aggregate(updates)
             self.model.load_state_dict(new_state)
-            
+
             acc = self.evaluate()
             self.history.append({"round": r, "accuracy": acc})
-            
+
             if (r + 1) % 10 == 0:
                 print(f"Round {r+1}: acc={acc:.4f}")
-        
+
         return self.history
 
 
 def compare_defenses():
     """Compare different defense mechanisms."""
     results = {}
-    
+
     for defense in [DefenseType.NONE, DefenseType.MEDIAN, DefenseType.TRIMMED_MEAN, DefenseType.KRUM]:
         config = PoisonConfig(
             num_rounds=30,
@@ -460,19 +460,19 @@ def compare_defenses():
             attack_type=AttackType.LABEL_FLIP,
             defense_type=defense,
         )
-        
+
         torch.manual_seed(config.seed)
         np.random.seed(config.seed)
-        
+
         datasets, test, _ = create_data(config)
         clients = [PoisonClient(i, d, config) for i, d in enumerate(datasets)]
         model = PoisonModel(config)
         server = DefenseServer(model, clients, test, config)
-        
+
         print(f"\n=== {defense.value.upper()} ===")
         history = server.train()
         results[defense.value] = history[-1]["accuracy"]
-    
+
     print("\n=== Results ===")
     for name, acc in results.items():
         print(f"{name}: {acc:.4f}")

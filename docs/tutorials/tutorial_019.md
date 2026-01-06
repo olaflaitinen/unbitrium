@@ -204,7 +204,7 @@ class FedNovaClient:
         self.dataset = dataset
         self.config = config
         self.device = device or torch.device("cpu")
-        
+
         # Assign heterogeneous local epochs
         if local_epochs is None:
             np.random.seed(config.seed + client_id)
@@ -238,13 +238,13 @@ class FedNovaClient:
 
         # Local training
         local_model = copy.deepcopy(model).to(self.device)
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
             momentum=self.config.momentum,
         )
-        
+
         dataloader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
@@ -264,14 +264,14 @@ class FedNovaClient:
                 optimizer.zero_grad()
                 outputs = local_model(features)
                 loss = F.cross_entropy(outputs, labels)
-                
+
                 # Optional proximal term
                 if self.config.rho > 0:
                     for name, param in local_model.named_parameters():
                         loss += (self.config.rho / 2) * (
                             (param - theta_init[name].to(self.device)) ** 2
                         ).sum()
-                
+
                 loss.backward()
                 optimizer.step()
 
@@ -355,14 +355,14 @@ class FedNovaServer:
 
         # Aggregate normalized updates
         global_state = self.model.state_dict()
-        
+
         for key in global_state.keys():
             # Find corresponding parameter name
             param_key = key.replace(".weight", "").replace(".bias", "")
-            
+
             # Aggregate: sum of (weight * delta / tau)
             normalized_delta = torch.zeros_like(global_state[key])
-            
+
             for i, update in enumerate(updates):
                 # Find the delta key (may need adjustment for different architectures)
                 if key in update["delta"]:
@@ -375,7 +375,7 @@ class FedNovaServer:
                             break
                     else:
                         continue
-                
+
                 normalized_delta += weights[i] * delta / update["tau"]
 
             # Apply update: theta = theta - tau_eff * normalized_delta

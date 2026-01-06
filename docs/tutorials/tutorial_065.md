@@ -170,7 +170,7 @@ class FedFoundationConfig:
 class Adapter(nn.Module):
     """
     Bottleneck adapter module for transformers.
-    
+
     Architecture: Linear(down) -> ReLU -> Linear(up) + residual
     """
 
@@ -179,7 +179,7 @@ class Adapter(nn.Module):
         self.down_project = nn.Linear(hidden_dim, adapter_dim)
         self.activation = nn.ReLU()
         self.up_project = nn.Linear(adapter_dim, hidden_dim)
-        
+
         # Initialize for near-identity at start
         nn.init.zeros_(self.up_project.weight)
         nn.init.zeros_(self.up_project.bias)
@@ -196,7 +196,7 @@ class Adapter(nn.Module):
 class LoRALayer(nn.Module):
     """
     Low-Rank Adaptation layer.
-    
+
     Adds trainable low-rank matrices A and B to frozen weight W:
     W' = W + BA where B ∈ R^{d×r}, A ∈ R^{r×k}
     """
@@ -212,13 +212,13 @@ class LoRALayer(nn.Module):
         self.rank = rank
         self.alpha = alpha
         self.scaling = alpha / rank
-        
+
         # Original frozen weight
         self.weight = nn.Parameter(
             torch.randn(out_dim, in_dim) * 0.02,
             requires_grad=False,
         )
-        
+
         # Low-rank trainable matrices
         self.lora_A = nn.Parameter(torch.randn(rank, in_dim) * 0.01)
         self.lora_B = nn.Parameter(torch.zeros(out_dim, rank))
@@ -245,7 +245,7 @@ class LoRALayer(nn.Module):
 class PrefixTuning(nn.Module):
     """
     Prefix tuning module.
-    
+
     Prepends learnable prefix tokens to key and value in attention.
     """
 
@@ -259,7 +259,7 @@ class PrefixTuning(nn.Module):
         self.prefix_len = prefix_len
         self.num_heads = num_heads
         self.head_dim = hidden_dim // num_heads
-        
+
         # Learnable prefix embeddings for key and value
         self.prefix_key = nn.Parameter(
             torch.randn(1, prefix_len, num_heads, self.head_dim) * 0.01
@@ -275,15 +275,15 @@ class PrefixTuning(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Prepend prefix to key and value."""
         batch_size = key.size(0)
-        
+
         # Expand prefix for batch
         prefix_k = self.prefix_key.expand(batch_size, -1, -1, -1)
         prefix_v = self.prefix_value.expand(batch_size, -1, -1, -1)
-        
+
         # Concatenate prefix
         key = torch.cat([prefix_k, key], dim=1)
         value = torch.cat([prefix_v, value], dim=1)
-        
+
         return key, value
 
 
@@ -305,13 +305,13 @@ class TransformerBlock(nn.Module):
         )
         self.norm1 = nn.LayerNorm(hidden_dim)
         self.norm2 = nn.LayerNorm(hidden_dim)
-        
+
         self.ffn = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim * 4),
             nn.GELU(),
             nn.Linear(hidden_dim * 4, hidden_dim),
         )
-        
+
         self.use_adapter = use_adapter
         if use_adapter:
             self.adapter1 = Adapter(hidden_dim, adapter_dim)
@@ -322,17 +322,17 @@ class TransformerBlock(nn.Module):
         # Self-attention with residual
         attn_out, _ = self.attention(x, x, x)
         x = self.norm1(x + attn_out)
-        
+
         if self.use_adapter:
             x = self.adapter1(x)
-        
+
         # FFN with residual
         ffn_out = self.ffn(x)
         x = self.norm2(x + ffn_out)
-        
+
         if self.use_adapter:
             x = self.adapter2(x)
-        
+
         return x
 ```
 
@@ -342,7 +342,7 @@ class TransformerBlock(nn.Module):
 class SimpleFoundationModel(nn.Module):
     """
     Simplified foundation model for demonstration.
-    
+
     In practice, this would be replaced with a pre-trained model
     like BERT, GPT, or CLIP.
     """
@@ -350,13 +350,13 @@ class SimpleFoundationModel(nn.Module):
     def __init__(self, config: FedFoundationConfig):
         super().__init__()
         self.config = config
-        
+
         # Token embedding
         self.embedding = nn.Embedding(config.vocab_size, config.hidden_dim)
         self.pos_embedding = nn.Parameter(
             torch.randn(1, config.max_seq_len, config.hidden_dim) * 0.02
         )
-        
+
         # Transformer layers
         self.layers = nn.ModuleList([
             TransformerBlock(
@@ -367,10 +367,10 @@ class SimpleFoundationModel(nn.Module):
             )
             for _ in range(config.num_layers)
         ])
-        
+
         # Classification head
         self.classifier = nn.Linear(config.hidden_dim, config.num_classes)
-        
+
         # Freeze backbone, only adapters are trainable
         self._freeze_backbone()
 
@@ -383,15 +383,15 @@ class SimpleFoundationModel(nn.Module):
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
         batch_size, seq_len = input_ids.shape
-        
+
         # Embeddings
         x = self.embedding(input_ids)
         x = x + self.pos_embedding[:, :seq_len, :]
-        
+
         # Transformer layers
         for layer in self.layers:
             x = layer(x)
-        
+
         # Pool and classify
         pooled = x.mean(dim=1)
         return self.classifier(pooled)
@@ -473,14 +473,14 @@ class FedFoundationClient:
     def train(self, model: SimpleFoundationModel) -> Dict[str, Any]:
         """Train adapter parameters locally."""
         local_model = copy.deepcopy(model)
-        
+
         # Only optimize trainable (adapter) parameters
         optimizer = torch.optim.AdamW(
             local_model.get_trainable_params(),
             lr=self.config.learning_rate,
             weight_decay=0.01,
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
@@ -497,15 +497,15 @@ class FedFoundationClient:
                 outputs = local_model(input_ids)
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
-                
+
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(
                     local_model.get_trainable_params(),
                     max_norm=1.0,
                 )
-                
+
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
 
@@ -520,17 +520,17 @@ class FedFoundationClient:
         """Evaluate model on local data."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=64)
-        
+
         correct = 0
         total = 0
-        
+
         with torch.no_grad():
             for input_ids, labels in loader:
                 outputs = model(input_ids)
                 preds = outputs.argmax(dim=1)
                 correct += (preds == labels).sum().item()
                 total += len(labels)
-        
+
         return {"accuracy": correct / total if total > 0 else 0.0}
 
 
@@ -554,34 +554,34 @@ class FedFoundationServer:
     def aggregate_adapters(self, updates: List[Dict]) -> None:
         """Aggregate adapter parameters from clients."""
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         # Weighted average of adapter states
         aggregated_state: Dict[str, torch.Tensor] = {}
-        
+
         for name in updates[0]["adapter_state"]:
             aggregated_state[name] = sum(
                 (u["num_samples"] / total_samples) * u["adapter_state"][name]
                 for u in updates
             )
-        
+
         self.model.set_adapter_state(aggregated_state)
 
     def train(self) -> List[Dict]:
         """Run federated training."""
         print(f"Parameter counts: {self.model.count_parameters()}")
-        
+
         for round_num in range(self.config.num_rounds):
             # Client training
             updates = [client.train(self.model) for client in self.clients]
-            
+
             # Aggregate adapters
             self.aggregate_adapters(updates)
-            
+
             # Evaluate
             metrics = [client.evaluate(self.model) for client in self.clients]
             avg_acc = np.mean([m["accuracy"] for m in metrics])
             avg_loss = np.mean([u["loss"] for u in updates])
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_accuracy": avg_acc,
@@ -600,7 +600,7 @@ def simulate_federated_foundation() -> Dict:
     torch.manual_seed(42)
 
     config = FedFoundationConfig()
-    
+
     # Create clients with datasets
     clients = []
     for i in range(config.num_clients):
@@ -615,7 +615,7 @@ def simulate_federated_foundation() -> Dict:
 
     # Create model
     model = SimpleFoundationModel(config)
-    
+
     # Train
     server = FedFoundationServer(model, clients, config)
     history = server.train()

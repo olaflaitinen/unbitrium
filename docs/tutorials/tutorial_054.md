@@ -97,32 +97,32 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MTLConfig:
     """Multi-task learning configuration."""
-    
+
     num_rounds: int = 50
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes_task1: int = 10
     num_classes_task2: int = 5
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     task1_weight: float = 0.5
     task2_weight: float = 0.5
-    
+
     seed: int = 42
 
 
 class MultiTaskModel(nn.Module):
     """Model with shared backbone and multiple heads."""
-    
+
     def __init__(self, config: MTLConfig):
         super().__init__()
-        
+
         # Shared backbone
         self.backbone = nn.Sequential(
             nn.Linear(config.input_dim, config.hidden_dim),
@@ -130,20 +130,20 @@ class MultiTaskModel(nn.Module):
             nn.Linear(config.hidden_dim, config.hidden_dim // 2),
             nn.ReLU()
         )
-        
+
         # Task-specific heads
         self.head1 = nn.Linear(config.hidden_dim // 2, config.num_classes_task1)
         self.head2 = nn.Linear(config.hidden_dim // 2, config.num_classes_task2)
-    
+
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         features = self.backbone(x)
         out1 = self.head1(features)
         out2 = self.head2(features)
         return out1, out2
-    
+
     def get_backbone_params(self):
         return self.backbone.parameters()
-    
+
     def get_head_params(self, task: int):
         if task == 1:
             return self.head1.parameters()
@@ -152,7 +152,7 @@ class MultiTaskModel(nn.Module):
 
 class MultiTaskDataset(Dataset):
     """Dataset with multiple task labels."""
-    
+
     def __init__(
         self,
         n: int = 200,
@@ -165,20 +165,20 @@ class MultiTaskDataset(Dataset):
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y1 = torch.randint(0, classes1, (n,), dtype=torch.long)
         self.y2 = torch.randint(0, classes2, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y1[i].item() % dim] += 2.0
             self.x[i, (self.y2[i].item() + 5) % dim] += 1.0
-    
+
     def __len__(self): return len(self.y1)
-    
+
     def __getitem__(self, idx):
         return self.x[idx], self.y1[idx], self.y2[idx]
 
 
 class MTLClient:
     """Multi-task FL client."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -188,36 +188,36 @@ class MTLClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train(self, model: nn.Module) -> Dict:
         local = copy.deepcopy(model)
         optimizer = torch.optim.Adam(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss, num_batches = 0.0, 0
         task1_loss_sum, task2_loss_sum = 0.0, 0.0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y1, y2 in loader:
                 optimizer.zero_grad()
-                
+
                 out1, out2 = local(x)
-                
+
                 loss1 = F.cross_entropy(out1, y1)
                 loss2 = F.cross_entropy(out2, y2)
-                
+
                 # Weighted multi-task loss
                 loss = self.config.task1_weight * loss1 + self.config.task2_weight * loss2
-                
+
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 task1_loss_sum += loss1.item()
                 task2_loss_sum += loss2.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -229,7 +229,7 @@ class MTLClient:
 
 class MTLServer:
     """Multi-task FL server."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -242,7 +242,7 @@ class MTLServer:
         self.test_data = test_data
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -252,52 +252,52 @@ class MTLServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct1, correct2, total = 0, 0, 0
-        
+
         with torch.no_grad():
             for x, y1, y2 in loader:
                 out1, out2 = self.model(x)
-                
+
                 pred1 = out1.argmax(dim=1)
                 pred2 = out2.argmax(dim=1)
-                
+
                 correct1 += (pred1 == y1).sum().item()
                 correct2 += (pred2 == y2).sum().item()
                 total += len(y1)
-        
+
         return {
             "task1_accuracy": correct1 / total,
             "task2_accuracy": correct2 / total
         }
-    
+
     def train(self) -> List[Dict]:
         logger.info("Starting multi-task FL")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model) for c in selected]
             self.aggregate(updates)
-            
+
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: "
                     f"task1={metrics['task1_accuracy']:.4f}, "
                     f"task2={metrics['task2_accuracy']:.4f}"
                 )
-        
+
         return self.history
 
 
@@ -305,21 +305,21 @@ def main():
     print("=" * 60)
     print("Tutorial 054: FL Multi-Task Learning")
     print("=" * 60)
-    
+
     config = MTLConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     clients = [
         MTLClient(i, MultiTaskDataset(seed=config.seed + i), config)
         for i in range(config.num_clients)
     ]
     test_data = MultiTaskDataset(seed=999)
     model = MultiTaskModel(config)
-    
+
     server = MTLServer(model, clients, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Multi-Task FL Complete")
     print(f"Task 1 accuracy: {history[-1]['task1_accuracy']:.4f}")

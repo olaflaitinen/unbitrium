@@ -271,16 +271,16 @@ class ExponentialQuantity(QuantityDistribution):
         """Generate exponentially distributed counts."""
         raw = np.random.exponential(self.scale, self.config.num_clients)
         raw = np.maximum(raw, 0.1)
-        
+
         # Normalize to total samples
         normalized = raw / raw.sum() * self.config.total_samples
-        
+
         # Enforce minimum
         counts = np.maximum(normalized, self.config.min_samples)
-        
+
         # Adjust to match total
         counts = counts / counts.sum() * self.config.total_samples
-        
+
         return np.round(counts).astype(int)
 
 
@@ -295,12 +295,12 @@ class PowerLawQuantity(QuantityDistribution):
         """Generate power-law distributed counts."""
         ranks = np.arange(1, self.config.num_clients + 1)
         raw = 1.0 / (ranks ** self.alpha)
-        
+
         # Normalize
         normalized = raw / raw.sum() * self.config.total_samples
         counts = np.maximum(normalized, self.config.min_samples)
         counts = counts / counts.sum() * self.config.total_samples
-        
+
         return np.round(counts).astype(int)
 
 
@@ -315,12 +315,12 @@ class ZipfQuantity(QuantityDistribution):
         """Generate Zipf distributed counts."""
         ranks = np.arange(1, self.config.num_clients + 1)
         raw = 1.0 / ranks ** self.s
-        
+
         # Normalize
         normalized = raw / raw.sum() * self.config.total_samples
         counts = np.maximum(normalized, self.config.min_samples)
         counts = counts / counts.sum() * self.config.total_samples
-        
+
         return np.round(counts).astype(int)
 
 
@@ -334,12 +334,12 @@ class LogNormalQuantity(QuantityDistribution):
     def generate_sample_counts(self) -> np.ndarray:
         """Generate log-normally distributed counts."""
         raw = np.random.lognormal(0, self.sigma, self.config.num_clients)
-        
+
         # Normalize
         normalized = raw / raw.sum() * self.config.total_samples
         counts = np.maximum(normalized, self.config.min_samples)
         counts = counts / counts.sum() * self.config.total_samples
-        
+
         return np.round(counts).astype(int)
 ```
 
@@ -401,17 +401,17 @@ class ImbalanceAnalyzer:
 def visualize_imbalance(sample_counts: np.ndarray, title: str = "Sample Distribution") -> None:
     """Visualize sample quantity distribution."""
     import matplotlib.pyplot as plt
-    
+
     sorted_counts = np.sort(sample_counts)[::-1]
-    
+
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    
+
     # Bar chart
     axes[0].bar(range(len(sorted_counts)), sorted_counts)
     axes[0].set_xlabel('Client (sorted)')
     axes[0].set_ylabel('Sample Count')
     axes[0].set_title('Sample Counts per Client')
-    
+
     # Lorenz curve
     cumulative = np.cumsum(sorted_counts[::-1]) / np.sum(sorted_counts)
     axes[1].plot(np.linspace(0, 1, len(cumulative)), cumulative)
@@ -420,7 +420,7 @@ def visualize_imbalance(sample_counts: np.ndarray, title: str = "Sample Distribu
     axes[1].set_ylabel('Proportion of Samples')
     axes[1].set_title('Lorenz Curve')
     axes[1].legend()
-    
+
     plt.suptitle(title)
     plt.tight_layout()
     plt.savefig('quantity_imbalance.png', dpi=150)
@@ -493,7 +493,7 @@ class ClippedAggregation(AggregationStrategy):
     def compute_weights(self, sample_counts: list[int]) -> np.ndarray:
         total = sum(sample_counts)
         weights = np.array([n / total for n in sample_counts])
-        
+
         # Clip and renormalize
         weights = np.minimum(weights, self.max_weight)
         return weights / weights.sum()
@@ -516,10 +516,10 @@ def compare_aggregation_strategies(
     # Create imbalanced data
     generator = PowerLawQuantity(config, alpha=1.5)
     client_data = generator.generate_data()
-    
+
     sample_counts = [len(labels) for _, labels in client_data]
     metrics = analyzer.compute_metrics(np.array(sample_counts))
-    
+
     print(f"Sample counts: {sample_counts}")
     print(f"Gini: {metrics['gini_coefficient']:.3f}")
     print(f"Imbalance ratio: {metrics['imbalance_ratio']:.1f}")
@@ -537,15 +537,15 @@ def compare_aggregation_strategies(
         print(f"\nStrategy: {name}")
         weights = strategy.compute_weights(sample_counts)
         print(f"Weights: {weights.round(3)}")
-        
+
         accuracy_history = train_with_strategy(client_data, weights, num_rounds)
-        
+
         results[name] = {
             "weights": weights,
             "accuracy": accuracy_history,
             "final_accuracy": accuracy_history[-1],
         }
-        
+
         print(f"Final accuracy: {accuracy_history[-1]:.4f}")
 
     return results
@@ -558,7 +558,7 @@ def train_with_strategy(
 ) -> list[float]:
     """Train with specified aggregation weights."""
     feature_dim = client_data[0][0].shape[1]
-    
+
     global_model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),
@@ -629,7 +629,7 @@ if __name__ == "__main__":
 ### Imbalance Metrics Comparison
 
 | Distribution | Gini | CV | Imbalance Ratio |
-|-------------|------|----|-----------------| 
+|-------------|------|----|-----------------|
 | Uniform | 0.0 | 0.0 | 1.0 |
 | Exponential | 0.35 | 0.8 | 10 |
 | Power-law (α=1.5) | 0.55 | 1.2 | 50 |

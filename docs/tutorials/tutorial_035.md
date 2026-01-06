@@ -142,11 +142,11 @@ class TopKCompressor(Compressor):
     def compress(self, tensor: torch.Tensor) -> tuple[Any, dict]:
         flat = tensor.flatten()
         k = max(1, int(len(flat) * self.k_ratio))
-        
+
         # Get top-k indices and values
         values, indices = torch.topk(flat.abs(), k)
         top_values = flat[indices]
-        
+
         return (indices, top_values), {"shape": tensor.shape, "k": k}
 
     def decompress(self, compressed: Any, metadata: dict) -> torch.Tensor:
@@ -166,15 +166,15 @@ class RandomKCompressor(Compressor):
     def compress(self, tensor: torch.Tensor) -> tuple[Any, dict]:
         flat = tensor.flatten()
         k = max(1, int(len(flat) * self.k_ratio))
-        
+
         # Random indices
         torch.manual_seed(self.seed)
         indices = torch.randperm(len(flat))[:k]
         values = flat[indices]
-        
+
         # Scale to maintain expected value
         values = values / self.k_ratio
-        
+
         return (indices, values), {"shape": tensor.shape, "k": k}
 
     def decompress(self, compressed: Any, metadata: dict) -> torch.Tensor:
@@ -194,26 +194,26 @@ class QuantizationCompressor(Compressor):
     def compress(self, tensor: torch.Tensor) -> tuple[Any, dict]:
         min_val = tensor.min()
         max_val = tensor.max()
-        
+
         if max_val - min_val < 1e-8:
             return tensor.clone(), {"min": min_val, "max": max_val}
-        
+
         # Normalize to [0, num_levels-1]
         normalized = (tensor - min_val) / (max_val - min_val)
         quantized = (normalized * (self.num_levels - 1)).round()
-        
+
         return quantized.to(torch.int16), {"min": min_val, "max": max_val, "shape": tensor.shape}
 
     def decompress(self, compressed: Any, metadata: dict) -> torch.Tensor:
         if "shape" not in metadata:
             return compressed
-        
+
         quantized = compressed.float()
         min_val, max_val = metadata["min"], metadata["max"]
-        
+
         if max_val - min_val < 1e-8:
             return torch.full(metadata["shape"], min_val)
-        
+
         # Dequantize
         normalized = quantized / (self.num_levels - 1)
         return normalized * (max_val - min_val) + min_val
@@ -249,13 +249,13 @@ class ErrorFeedback:
         """Update error and return accumulated gradient."""
         if name not in self.errors:
             self.errors[name] = torch.zeros_like(original)
-        
+
         # Add error to gradient
         accumulated = original + self.errors[name]
-        
+
         # New error = accumulated - compressed
         self.errors[name] = accumulated - compressed
-        
+
         return accumulated
 
     def reset(self):
@@ -367,11 +367,11 @@ class CompressedServer:
     def aggregate(self, updates: list[dict]) -> None:
         """Decompress and aggregate."""
         total = sum(u["num_samples"] for u in updates)
-        
+
         with torch.no_grad():
             for name, param in self.model.named_parameters():
                 delta = torch.zeros_like(param)
-                
+
                 for update in updates:
                     weight = update["num_samples"] / total
                     decompressed = self.compressor.decompress(
@@ -379,7 +379,7 @@ class CompressedServer:
                         update["metadata"][name],
                     )
                     delta += weight * decompressed
-                
+
                 param.data += delta
 
     def train(self) -> list[dict]:

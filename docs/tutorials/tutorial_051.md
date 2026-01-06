@@ -190,7 +190,7 @@ class ReplayBuffer:
         """Sample from buffer."""
         if len(self.buffer) == 0:
             return None, None
-        
+
         indices = np.random.choice(
             len(self.buffer),
             min(batch_size, len(self.buffer)),
@@ -235,7 +235,7 @@ class ContinualClient:
     def set_task_data(self, dataset: TaskDataset):
         """Set data for current task."""
         self.current_dataset = dataset
-        
+
         # Add to replay buffer
         loader = DataLoader(dataset, batch_size=32, shuffle=True)
         for features, labels in loader:
@@ -262,18 +262,18 @@ class ContinualClient:
                 optimizer.zero_grad()
                 outputs = local_model(features)
                 loss = F.cross_entropy(outputs, labels)
-                
+
                 # Add EWC penalty
                 if use_ewc and self.ewc is not None:
                     loss += self.ewc.penalty(local_model)
-                
+
                 # Add replay loss
                 if use_replay:
                     replay_features, replay_labels = self.replay_buffer.sample(16)
                     if replay_features is not None:
                         replay_out = local_model(replay_features)
                         loss += 0.5 * F.cross_entropy(replay_out, replay_labels)
-                
+
                 loss.backward()
                 optimizer.step()
                 total_loss += loss.item()
@@ -317,13 +317,13 @@ class ContinualFLServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train_task(self, task_id: int, datasets: list[TaskDataset]) -> dict:
@@ -344,7 +344,7 @@ class ContinualFLServer:
         """Evaluate on all previous tasks."""
         results = {}
         self.model.eval()
-        
+
         for task_id, datasets in task_datasets.items():
             accs = []
             for dataset in datasets:
@@ -358,7 +358,7 @@ class ContinualFLServer:
                         total += len(labels)
                 accs.append(correct / total)
             results[task_id] = np.mean(accs)
-        
+
         return results
 
 
@@ -375,7 +375,7 @@ def simulate_continual_fl() -> dict:
 
     for task_id in range(config.num_tasks):
         print(f"\nTask {task_id + 1}")
-        
+
         datasets = []
         for _ in range(config.num_clients):
             n = np.random.randint(100, 200)
@@ -385,10 +385,10 @@ def simulate_continual_fl() -> dict:
             for j in range(n):
                 features[j, labels[j] % config.input_dim] += 2.0
             datasets.append(TaskDataset(features, labels))
-        
+
         all_task_datasets[task_id] = datasets
         server.train_task(task_id, datasets)
-        
+
         results = server.evaluate_all_tasks(all_task_datasets)
         print(f"Task accuracies: {results}")
 

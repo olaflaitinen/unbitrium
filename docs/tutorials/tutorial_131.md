@@ -98,15 +98,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TestConfig:
     """Test configuration."""
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 2
-    
+
     seed: int = 42
 
 
@@ -115,13 +115,13 @@ class TestDataset(Dataset):
         np.random.seed(seed)
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
@@ -134,7 +134,7 @@ class TestModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
@@ -143,13 +143,13 @@ def fedavg_aggregate(updates: List[Dict[str, torch.Tensor]], weights: List[int])
     """FedAvg aggregation."""
     total = sum(weights)
     result = {}
-    
+
     for key in updates[0].keys():
         result[key] = sum(
             (w / total) * u[key].float()
             for u, w in zip(updates, weights)
         )
-    
+
     return result
 
 
@@ -158,7 +158,7 @@ def train_local(model: nn.Module, dataset: Dataset, config: TestConfig) -> Dict[
     local = copy.deepcopy(model)
     optimizer = torch.optim.SGD(local.parameters(), lr=config.learning_rate)
     loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
-    
+
     local.train()
     for _ in range(config.local_epochs):
         for x, y in loader:
@@ -166,37 +166,37 @@ def train_local(model: nn.Module, dataset: Dataset, config: TestConfig) -> Dict[
             loss = F.cross_entropy(local(x), y)
             loss.backward()
             optimizer.step()
-    
+
     return {k: v.cpu() for k, v in local.state_dict().items()}
 
 
 class TestModelForward(unittest.TestCase):
     """Test model forward pass."""
-    
+
     def setUp(self):
         self.config = TestConfig()
         self.model = TestModel(self.config)
-    
+
     def test_forward_shape(self):
         """Test output shape."""
         x = torch.randn(16, self.config.input_dim)
         output = self.model(x)
         self.assertEqual(output.shape, (16, self.config.num_classes))
-    
+
     def test_forward_batch_independence(self):
         """Test batch independence."""
         x1 = torch.randn(1, self.config.input_dim)
         x2 = torch.randn(1, self.config.input_dim)
-        
+
         self.model.eval()
         with torch.no_grad():
             out1 = self.model(x1)
             out2 = self.model(x2)
             out_both = self.model(torch.cat([x1, x2], dim=0))
-        
+
         self.assertTrue(torch.allclose(out1, out_both[0:1], atol=1e-5))
         self.assertTrue(torch.allclose(out2, out_both[1:2], atol=1e-5))
-    
+
     def test_no_nan(self):
         """Test no NaN in output."""
         x = torch.randn(16, self.config.input_dim)
@@ -206,116 +206,116 @@ class TestModelForward(unittest.TestCase):
 
 class TestAggregation(unittest.TestCase):
     """Test aggregation functions."""
-    
+
     def test_fedavg_weighted_average(self):
         """Test FedAvg produces weighted average."""
         u1 = {"w": torch.tensor([1.0, 2.0])}
         u2 = {"w": torch.tensor([3.0, 4.0])}
-        
+
         result = fedavg_aggregate([u1, u2], [1, 1])
         expected = torch.tensor([2.0, 3.0])
-        
+
         self.assertTrue(torch.allclose(result["w"], expected))
-    
+
     def test_fedavg_weighted(self):
         """Test FedAvg with different weights."""
         u1 = {"w": torch.tensor([0.0])}
         u2 = {"w": torch.tensor([10.0])}
-        
+
         result = fedavg_aggregate([u1, u2], [9, 1])
         expected = torch.tensor([1.0])
-        
+
         self.assertTrue(torch.allclose(result["w"], expected))
-    
+
     def test_fedavg_single_client(self):
         """Test FedAvg with single client."""
         u1 = {"w": torch.tensor([5.0, 6.0])}
-        
+
         result = fedavg_aggregate([u1], [100])
-        
+
         self.assertTrue(torch.allclose(result["w"], u1["w"]))
 
 
 class TestLocalTraining(unittest.TestCase):
     """Test local training."""
-    
+
     def setUp(self):
         self.config = TestConfig()
         self.model = TestModel(self.config)
         self.dataset = TestDataset(n=100, dim=self.config.input_dim)
-    
+
     def test_training_changes_weights(self):
         """Test training modifies weights."""
         initial = {k: v.clone() for k, v in self.model.state_dict().items()}
-        
+
         final = train_local(self.model, self.dataset, self.config)
-        
+
         changed = False
         for key in initial.keys():
             if not torch.allclose(initial[key], final[key]):
                 changed = True
                 break
-        
+
         self.assertTrue(changed)
-    
+
     def test_training_reduces_loss(self):
         """Test training reduces loss on training data."""
         loader = DataLoader(self.dataset, batch_size=64)
-        
+
         self.model.eval()
         with torch.no_grad():
             initial_loss = sum(
                 F.cross_entropy(self.model(x), y).item()
                 for x, y in loader
             )
-        
+
         final_state = train_local(self.model, self.dataset, self.config)
         self.model.load_state_dict(final_state)
-        
+
         self.model.eval()
         with torch.no_grad():
             final_loss = sum(
                 F.cross_entropy(self.model(x), y).item()
                 for x, y in loader
             )
-        
+
         self.assertLess(final_loss, initial_loss)
 
 
 class TestIntegration(unittest.TestCase):
     """Integration tests for FL."""
-    
+
     def test_full_round(self):
         """Test complete FL round."""
         config = TestConfig()
         torch.manual_seed(config.seed)
-        
+
         model = TestModel(config)
         datasets = [
             TestDataset(n=100, dim=config.input_dim, seed=i)
             for i in range(3)
         ]
-        
+
         # Local training
         updates = [train_local(model, ds, config) for ds in datasets]
         weights = [len(ds) for ds in datasets]
-        
+
         # Aggregation
         aggregated = fedavg_aggregate(updates, weights)
-        
+
         # Verify aggregation worked
         self.assertIn("net.0.weight", aggregated)
         self.assertFalse(torch.isnan(aggregated["net.0.weight"]).any())
-    
+
     def test_multi_round_convergence(self):
         """Test multi-round convergence."""
         config = TestConfig()
         torch.manual_seed(config.seed)
-        
+
         model = TestModel(config)
         dataset = TestDataset(n=200, dim=config.input_dim, seed=0)
         test_loader = DataLoader(dataset, batch_size=64)
-        
+
         def evaluate():
             model.eval()
             correct, total = 0, 0
@@ -325,17 +325,17 @@ class TestIntegration(unittest.TestCase):
                     correct += (pred == y).sum().item()
                     total += len(y)
             return correct / total
-        
+
         initial_acc = evaluate()
-        
+
         # Run multiple rounds
         for _ in range(5):
             updates = [train_local(model, dataset, config)]
             aggregated = fedavg_aggregate(updates, [len(dataset)])
             model.load_state_dict(aggregated)
-        
+
         final_acc = evaluate()
-        
+
         self.assertGreater(final_acc, initial_acc)
 
 
@@ -343,15 +343,15 @@ def run_tests():
     """Run all tests."""
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    
+
     suite.addTests(loader.loadTestsFromTestCase(TestModelForward))
     suite.addTests(loader.loadTestsFromTestCase(TestAggregation))
     suite.addTests(loader.loadTestsFromTestCase(TestLocalTraining))
     suite.addTests(loader.loadTestsFromTestCase(TestIntegration))
-    
+
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
-    
+
     return result.wasSuccessful()
 
 
@@ -359,9 +359,9 @@ def main():
     print("=" * 60)
     print("Tutorial 131: FL Testing")
     print("=" * 60)
-    
+
     success = run_tests()
-    
+
     print("\n" + "=" * 60)
     print(f"All tests passed: {success}")
     print("=" * 60)

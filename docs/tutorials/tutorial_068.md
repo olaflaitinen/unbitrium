@@ -184,7 +184,7 @@ class VehicularFLConfig:
 class SensorDataset(Dataset):
     """
     Simulated autonomous vehicle sensor dataset.
-    
+
     Represents fused sensor data (camera + LiDAR + radar).
     """
 
@@ -198,10 +198,10 @@ class SensorDataset(Dataset):
     ):
         # Seed for reproducibility per vehicle
         np.random.seed(vehicle_id)
-        
+
         # Sensor features (simulated fusion output)
         self.features = torch.randn(num_samples, sensor_dim)
-        
+
         # Add weather-specific noise
         noise_level = {
             WeatherCondition.CLEAR: 0.1,
@@ -210,10 +210,10 @@ class SensorDataset(Dataset):
             WeatherCondition.SNOW: 0.4,
         }[weather]
         self.features += torch.randn_like(self.features) * noise_level
-        
+
         # Object labels
         self.labels = torch.randint(0, num_classes, (num_samples,))
-        
+
         # Vehicle-specific bias (different environments)
         self.features[:, vehicle_id % sensor_dim] += 0.5
 
@@ -227,7 +227,7 @@ class SensorDataset(Dataset):
 class ObjectDetector(nn.Module):
     """
     Object detection model for autonomous vehicles.
-    
+
     Simplified version - in practice would be YOLO, Faster R-CNN, etc.
     """
 
@@ -243,13 +243,13 @@ class ObjectDetector(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
         )
-        
+
         self.classifier = nn.Sequential(
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes),
         )
-        
+
         self.confidence = nn.Sequential(
             nn.Linear(128, 32),
             nn.ReLU(),
@@ -279,7 +279,7 @@ class ObjectDetector(nn.Module):
 class LaneDetector(nn.Module):
     """
     Lane detection/segmentation model.
-    
+
     Simplified - produces lane coefficients.
     """
 
@@ -291,7 +291,7 @@ class LaneDetector(nn.Module):
             nn.Linear(128, 64),
             nn.ReLU(),
         )
-        
+
         # Output: lane coefficients (polynomial fit)
         self.lane_head = nn.Linear(64, num_lanes * 4)  # 4 coefficients per lane
         self.num_lanes = num_lanes
@@ -325,10 +325,10 @@ class TrajectoryPredictor(nn.Module):
     def forward(self, past_trajectory: torch.Tensor) -> torch.Tensor:
         """
         Predict future trajectory.
-        
+
         Args:
             past_trajectory: (batch, seq_len, 2) past positions
-            
+
         Returns:
             (batch, pred_horizon, 2) predicted positions
         """
@@ -356,7 +356,7 @@ class AutonomousVehicle:
         self.vehicle_type = vehicle_type
         self.config = config
         self.weather = weather
-        
+
         # Initialize state
         self.state = VehicleState(
             position=(np.random.uniform(0, 1000), np.random.uniform(0, 1000)),
@@ -364,7 +364,7 @@ class AutonomousVehicle:
             heading=np.random.uniform(0, 2 * np.pi),
             timestamp=0.0,
         )
-        
+
         # Create local dataset
         num_samples = np.random.randint(50, 200)
         self.dataset = SensorDataset(
@@ -374,7 +374,7 @@ class AutonomousVehicle:
             config.num_classes,
             weather,
         )
-        
+
         # Communication stats
         self.bytes_sent = 0
         self.bytes_received = 0
@@ -389,16 +389,16 @@ class AutonomousVehicle:
         # Simple linear motion
         dx = self.state.velocity * np.cos(self.state.heading) * dt
         dy = self.state.velocity * np.sin(self.state.heading) * dt
-        
+
         new_x = (self.state.position[0] + dx) % 1000
         new_y = (self.state.position[1] + dy) % 1000
-        
+
         self.state.position = (new_x, new_y)
         self.state.timestamp += dt
-        
+
         # Random heading change
         self.state.heading += np.random.uniform(-0.1, 0.1)
-        
+
         # Connection drops randomly
         self.state.connected = np.random.rand() < self.config.connection_prob
 
@@ -410,7 +410,7 @@ class AutonomousVehicle:
         """Train model on local driving data."""
         if not self.is_connected():
             return None
-        
+
         local_model = copy.deepcopy(model)
         optimizer = torch.optim.Adam(
             local_model.parameters(),
@@ -432,20 +432,20 @@ class AutonomousVehicle:
         for _ in range(self.config.local_epochs):
             for features, labels in loader:
                 optimizer.zero_grad()
-                
+
                 logits, conf = local_model(features)
-                
+
                 # Classification loss
                 cls_loss = F.cross_entropy(logits, labels)
-                
+
                 # Confidence regularization
                 conf_target = (logits.argmax(1) == labels).float()
                 conf_loss = F.binary_cross_entropy(conf, conf_target)
-                
+
                 loss = cls_loss + 0.1 * conf_loss
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
 
@@ -468,11 +468,11 @@ class AutonomousVehicle:
         """Evaluate model on local test data."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=64)
-        
+
         correct = 0
         total = 0
         total_conf = 0.0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 logits, conf = model(features)
@@ -480,7 +480,7 @@ class AutonomousVehicle:
                 correct += (preds == labels).sum().item()
                 total += len(labels)
                 total_conf += conf.sum().item()
-        
+
         return {
             "accuracy": correct / total if total > 0 else 0.0,
             "avg_confidence": total_conf / total if total > 0 else 0.0,
@@ -521,16 +521,16 @@ class RoadsideUnit:
         """Aggregate updates from connected vehicles."""
         if not updates:
             return None
-        
+
         total = sum(u["num_samples"] for u in updates)
         aggregated = {}
-        
+
         for name in updates[0]["state_dict"]:
             aggregated[name] = sum(
                 (u["num_samples"] / total) * u["state_dict"][name].float()
                 for u in updates
             )
-        
+
         return {
             "state_dict": aggregated,
             "num_samples": total,
@@ -567,16 +567,16 @@ class VehicularFLServer:
         """Aggregate RSU-level updates."""
         if not rsu_updates:
             return
-        
+
         total = sum(u["num_samples"] for u in rsu_updates)
         new_state = {}
-        
+
         for name in self.model.state_dict():
             new_state[name] = sum(
                 (u["num_samples"] / total) * u["state_dict"][name].float()
                 for u in rsu_updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> List[Dict]:
@@ -585,36 +585,36 @@ class VehicularFLServer:
             # Update vehicle states
             for vehicle in self.vehicles:
                 vehicle.update_state()
-            
+
             # Update RSU connections
             for rsu in self.rsus:
                 rsu.update_connections(self.vehicles)
-            
+
             # Collect updates from each RSU
             rsu_updates = []
             total_vehicles = 0
-            
+
             for rsu in self.rsus:
                 if not rsu.connected_vehicles:
                     continue
-                
+
                 # Vehicles train locally
                 vehicle_updates = []
                 for vehicle in rsu.connected_vehicles:
                     update = vehicle.train(self.model)
                     if update is not None:
                         vehicle_updates.append(update)
-                
+
                 # RSU aggregates locally
                 if vehicle_updates:
                     rsu_update = rsu.aggregate_local(vehicle_updates)
                     if rsu_update:
                         rsu_updates.append(rsu_update)
                         total_vehicles += len(vehicle_updates)
-            
+
             # Global aggregation
             self.aggregate_global(rsu_updates)
-            
+
             # Evaluate
             connected = [v for v in self.vehicles if v.is_connected()]
             if connected:
@@ -622,7 +622,7 @@ class VehicularFLServer:
                 avg_acc = np.mean([m["accuracy"] for m in metrics])
             else:
                 avg_acc = 0.0
-            
+
             self.history.append({
                 "round": round_num,
                 "vehicles_trained": total_vehicles,
@@ -643,26 +643,26 @@ def simulate_vehicular_fl() -> Dict:
     torch.manual_seed(42)
 
     config = VehicularFLConfig()
-    
+
     # Create vehicles
     vehicles = []
     weather_conditions = list(WeatherCondition)
     vehicle_types = list(VehicleType)
-    
+
     for i in range(config.num_vehicles):
         weather = weather_conditions[i % len(weather_conditions)]
         vtype = vehicle_types[i % len(vehicle_types)]
         vehicles.append(AutonomousVehicle(i, vtype, config, weather))
-    
+
     # Create RSUs
     rsus = []
     for i in range(4):
         position = (250 + (i % 2) * 500, 250 + (i // 2) * 500)
         rsus.append(RoadsideUnit(i, position, coverage_radius=300))
-    
+
     # Create model
     model = ObjectDetector(config.sensor_dim, config.num_classes)
-    
+
     # Run FL
     server = VehicularFLServer(model, vehicles, rsus, config)
     history = server.train()

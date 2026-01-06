@@ -260,11 +260,11 @@ class ConvergenceTracker:
 
         recent = self.history[-window_size:]
         losses = [m.loss for m in recent]
-        
+
         # Fit exponential decay: loss = a * exp(-rate * t)
         t = np.arange(len(losses))
         log_losses = np.log(np.array(losses) + 1e-10)
-        
+
         # Linear regression on log scale
         slope, _ = np.polyfit(t, log_losses, 1)
         return -slope
@@ -425,7 +425,7 @@ def analyze_learning_rate_impact(
 
     for lr in learning_rates:
         tracker = ConvergenceTracker()
-        
+
         # Simulate training
         for r in range(num_rounds):
             # Simulated loss (decay with oscillation)
@@ -437,7 +437,7 @@ def analyze_learning_rate_impact(
             # Create dummy model for tracking
             model = nn.Linear(10, 10)
             model.zero_grad()
-            
+
             tracker.update(r, loss, accuracy, model)
 
         analyzer.add_experiment(f"LR={lr}", tracker.history)
@@ -486,7 +486,7 @@ def run_convergence_experiment(
 
     for local_epochs in local_epochs_list:
         print(f"\nTraining with E={local_epochs} local epochs...")
-        
+
         tracker = ConvergenceTracker(patience=20)
         scheduler = LearningRateScheduler(
             initial_lr=0.05,
@@ -578,7 +578,7 @@ def run_convergence_experiment(
 
 if __name__ == "__main__":
     results = run_convergence_experiment()
-    
+
     print("\nConvergence Comparison:")
     for name, metrics in results.items():
         print(f"{name}: acc={metrics['final_accuracy']:.4f}, "

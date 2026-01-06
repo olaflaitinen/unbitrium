@@ -215,7 +215,7 @@ class ByzantineAttacker:
             all_vals = torch.stack([u[name] for u in all_updates])
             mean = all_vals.mean(dim=0)
             std = all_vals.std(dim=0) + 1e-7
-            
+
             # Attack just within detection threshold
             attacked[name] = mean - 2 * std
         return attacked
@@ -286,14 +286,14 @@ class TrimmedMeanAggregator(ByzantineAggregator):
     ) -> dict[str, torch.Tensor]:
         n = len(updates)
         k = max(0, int(n * self.trim_ratio))
-        
+
         if 2 * k >= n:
             k = max(0, n // 2 - 1)
 
         result = {}
         for name in updates[0].keys():
             stacked = torch.stack([u[name] for u in updates])
-            
+
             if k > 0:
                 sorted_vals, _ = torch.sort(stacked, dim=0)
                 trimmed = sorted_vals[k:n - k]
@@ -329,7 +329,7 @@ class BulyanAggregator(ByzantineAggregator):
     ) -> dict[str, torch.Tensor]:
         n = len(updates)
         f = num_byzantine
-        
+
         # Need at least 4f + 3 clients
         if n < 4 * f + 3:
             # Fall back to trimmed mean
@@ -350,7 +350,7 @@ class BulyanAggregator(ByzantineAggregator):
     ) -> list[dict]:
         """Select top num_select using Krum scores."""
         n = len(updates)
-        
+
         flattened = []
         for update in updates:
             flat = torch.cat([v.flatten() for v in update.values()])

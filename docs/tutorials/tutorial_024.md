@@ -158,7 +158,7 @@ class SimpleDataset(Dataset):
 
 class PublicDataset(Dataset):
     """Public dataset for distillation (unlabeled or labeled)."""
-    
+
     def __init__(self, features: np.ndarray, labels: np.ndarray = None):
         self.features = torch.FloatTensor(features)
         self.labels = torch.LongTensor(labels) if labels is not None else None
@@ -181,18 +181,18 @@ def distillation_loss(
 ) -> torch.Tensor:
     """Compute knowledge distillation loss."""
     T = temperature
-    
+
     # Soft targets
     soft_targets = F.softmax(teacher_logits / T, dim=1)
     soft_student = F.log_softmax(student_logits / T, dim=1)
-    
+
     kd_loss = F.kl_div(soft_student, soft_targets, reduction="batchmean") * (T * T)
-    
+
     if labels is not None:
         # Hard targets
         ce_loss = F.cross_entropy(student_logits, labels)
         return alpha * ce_loss + (1 - alpha) * kd_loss
-    
+
     return kd_loss
 ```
 
@@ -263,11 +263,11 @@ class FedMDClient:
         """Distill knowledge from consensus."""
         self.model.train()
         optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config.learning_rate)
-        
+
         # Create dataset with consensus logits
         features = public_data.features
         n = len(features)
-        
+
         total_loss = 0.0
         num_batches = 0
 
@@ -280,7 +280,7 @@ class FedMDClient:
 
                 optimizer.zero_grad()
                 student_logits = self.model(batch_features)
-                
+
                 loss = distillation_loss(
                     student_logits,
                     batch_teacher_logits,
@@ -297,7 +297,7 @@ class FedMDClient:
     def evaluate(self, dataset: Dataset = None) -> dict:
         if dataset is None:
             dataset = self.dataset
-        
+
         self.model.eval()
         loader = DataLoader(dataset, batch_size=128)
         correct = 0
@@ -356,7 +356,7 @@ class FedMDServer:
 
         # Evaluate
         accs = [c.evaluate()["accuracy"] for c in self.clients]
-        
+
         return {
             "round": round_num,
             "avg_accuracy": np.mean(accs),

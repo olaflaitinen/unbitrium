@@ -222,7 +222,7 @@ class EvaluationReport:
 
 class EvalDataset(Dataset):
     """Dataset for evaluation."""
-    
+
     def __init__(
         self,
         features: np.ndarray,
@@ -232,17 +232,17 @@ class EvalDataset(Dataset):
         self.features = torch.FloatTensor(features)
         self.labels = torch.LongTensor(labels)
         self.client_id = client_id
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.features[idx], self.labels[idx]
 
 
 class EvalModel(nn.Module):
     """Model for evaluation demonstrations."""
-    
+
     def __init__(self, input_dim: int = 32, num_classes: int = 10):
         super().__init__()
         self.network = nn.Sequential(
@@ -252,10 +252,10 @@ class EvalModel(nn.Module):
             nn.ReLU(),
             nn.Linear(32, num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
-    
+
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
         logits = self.forward(x)
         return F.softmax(logits, dim=1)
@@ -266,10 +266,10 @@ class EvalModel(nn.Module):
 ```python
 class FLEvaluator:
     """Comprehensive FL model evaluator."""
-    
+
     def __init__(self, config: EvalConfig):
         self.config = config
-    
+
     def evaluate_on_dataset(
         self,
         model: nn.Module,
@@ -283,34 +283,34 @@ class FLEvaluator:
             batch_size=self.config.eval_batch_size,
             shuffle=False,
         )
-        
+
         all_preds = []
         all_labels = []
         all_probs = []
         total_loss = 0.0
         num_samples = 0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = model(features)
                 probs = F.softmax(outputs, dim=1)
                 preds = outputs.argmax(dim=1)
                 loss = F.cross_entropy(outputs, labels)
-                
+
                 all_preds.extend(preds.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
                 all_probs.extend(probs.cpu().numpy())
                 total_loss += loss.item() * len(labels)
                 num_samples += len(labels)
-        
+
         all_preds = np.array(all_preds)
         all_labels = np.array(all_labels)
         all_probs = np.array(all_probs)
-        
+
         # Compute metrics
         accuracy = (all_preds == all_labels).mean()
         avg_loss = total_loss / num_samples if num_samples > 0 else 0
-        
+
         # Per-class accuracy
         per_class_acc = {}
         for c in range(self.config.num_classes):
@@ -319,19 +319,19 @@ class FLEvaluator:
                 per_class_acc[c] = (all_preds[mask] == c).mean()
             else:
                 per_class_acc[c] = 0.0
-        
+
         # Confidence statistics
         max_probs = all_probs.max(axis=1)
         conf_mean = max_probs.mean()
         conf_std = max_probs.std()
-        
+
         # Confusion matrix
         confusion = None
         if self.config.compute_confusion:
             confusion = np.zeros((self.config.num_classes, self.config.num_classes), dtype=int)
             for true, pred in zip(all_labels, all_preds):
                 confusion[true, pred] += 1
-        
+
         return ClientMetrics(
             client_id=client_id,
             accuracy=accuracy,
@@ -342,7 +342,7 @@ class FLEvaluator:
             confidence_mean=conf_mean,
             confidence_std=conf_std,
         )
-    
+
     def evaluate_global(
         self,
         model: nn.Module,
@@ -350,18 +350,18 @@ class FLEvaluator:
     ) -> GlobalMetrics:
         """Evaluate model on global test set."""
         metrics = self.evaluate_on_dataset(model, test_dataset, client_id=-1)
-        
+
         # Compute F1 scores
         if metrics.confusion_matrix is not None:
             precision, recall, f1 = self._compute_f1_scores(metrics.confusion_matrix)
             macro_f1 = np.mean(f1)
-            
+
             class_counts = metrics.confusion_matrix.sum(axis=1)
             weighted_f1 = np.average(f1, weights=class_counts)
         else:
             macro_f1 = 0.0
             weighted_f1 = 0.0
-        
+
         return GlobalMetrics(
             accuracy=metrics.accuracy,
             loss=metrics.loss,
@@ -370,7 +370,7 @@ class FLEvaluator:
             weighted_f1=weighted_f1,
             confusion_matrix=metrics.confusion_matrix,
         )
-    
+
     def evaluate_local(
         self,
         model: nn.Module,
@@ -381,7 +381,7 @@ class FLEvaluator:
             self.evaluate_on_dataset(model, dataset, client_id=i)
             for i, dataset in enumerate(client_datasets)
         ]
-    
+
     def compute_fairness_metrics(
         self,
         client_metrics: List[ClientMetrics],
@@ -389,38 +389,38 @@ class FLEvaluator:
         """Compute fairness metrics across clients."""
         accuracies = np.array([m.accuracy for m in client_metrics])
         n = len(accuracies)
-        
+
         if n == 0:
             return FairnessMetrics(
                 jain_index=0, gini_coefficient=1, accuracy_gap=1,
                 worst_10_percent=0, coefficient_of_variation=1,
                 num_underperforming=0, accuracy_histogram=[],
             )
-        
+
         # Jain's fairness index
         jain = (accuracies.sum() ** 2) / (n * (accuracies ** 2).sum() + 1e-8)
-        
+
         # Gini coefficient
         diffs = np.abs(accuracies[:, None] - accuracies[None, :]).sum()
         gini = diffs / (2 * n * n * accuracies.mean() + 1e-8)
-        
+
         # Accuracy gap
         gap = accuracies.max() - accuracies.min()
-        
+
         # Worst percentile
         worst_pct = np.percentile(accuracies, self.config.worst_percentile)
-        
+
         # Coefficient of variation
         cov = accuracies.std() / (accuracies.mean() + 1e-8)
-        
+
         # Underperforming clients
         threshold = self.config.fairness_threshold * accuracies.mean()
         num_under = (accuracies < threshold).sum()
-        
+
         # Histogram
         bins = np.linspace(0, 1, 11)
         histogram = np.histogram(accuracies, bins=bins)[0].tolist()
-        
+
         return FairnessMetrics(
             jain_index=jain,
             gini_coefficient=gini,
@@ -430,7 +430,7 @@ class FLEvaluator:
             num_underperforming=int(num_under),
             accuracy_histogram=histogram,
         )
-    
+
     def compute_weighted_accuracy(
         self,
         client_metrics: List[ClientMetrics],
@@ -439,7 +439,7 @@ class FLEvaluator:
         total_correct = sum(m.accuracy * m.num_samples for m in client_metrics)
         total_samples = sum(m.num_samples for m in client_metrics)
         return total_correct / total_samples if total_samples > 0 else 0
-    
+
     def _compute_f1_scores(
         self,
         confusion: np.ndarray,
@@ -449,18 +449,18 @@ class FLEvaluator:
         precision = np.zeros(num_classes)
         recall = np.zeros(num_classes)
         f1 = np.zeros(num_classes)
-        
+
         for c in range(num_classes):
             tp = confusion[c, c]
             fp = confusion[:, c].sum() - tp
             fn = confusion[c, :].sum() - tp
-            
+
             precision[c] = tp / (tp + fp + 1e-8)
             recall[c] = tp / (tp + fn + 1e-8)
             f1[c] = 2 * precision[c] * recall[c] / (precision[c] + recall[c] + 1e-8)
-        
+
         return precision, recall, f1
-    
+
     def full_evaluation(
         self,
         model: nn.Module,
@@ -473,12 +473,12 @@ class FLEvaluator:
         client_metrics = self.evaluate_local(model, client_datasets)
         fairness_metrics = self.compute_fairness_metrics(client_metrics)
         weighted_acc = self.compute_weighted_accuracy(client_metrics)
-        
+
         holdout_acc = None
         if holdout_dataset is not None:
             holdout_metrics = self.evaluate_on_dataset(model, holdout_dataset, client_id=-2)
             holdout_acc = holdout_metrics.accuracy
-        
+
         return EvaluationReport(
             global_metrics=global_metrics,
             client_metrics=client_metrics,
@@ -493,10 +493,10 @@ class FLEvaluator:
 ```python
 class CalibrationAnalyzer:
     """Analyze model calibration."""
-    
+
     def __init__(self, num_bins: int = 10):
         self.num_bins = num_bins
-    
+
     def compute_ece(
         self,
         confidences: np.ndarray,
@@ -505,16 +505,16 @@ class CalibrationAnalyzer:
         """Compute Expected Calibration Error."""
         bin_boundaries = np.linspace(0, 1, self.num_bins + 1)
         ece = 0.0
-        
+
         for i in range(self.num_bins):
             mask = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i + 1])
             if mask.sum() > 0:
                 bin_acc = correct[mask].mean()
                 bin_conf = confidences[mask].mean()
                 ece += mask.sum() * abs(bin_acc - bin_conf)
-        
+
         return ece / len(confidences)
-    
+
     def get_reliability_diagram_data(
         self,
         confidences: np.ndarray,
@@ -525,19 +525,19 @@ class CalibrationAnalyzer:
         bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2
         bin_accuracies = np.zeros(self.num_bins)
         bin_counts = np.zeros(self.num_bins)
-        
+
         for i in range(self.num_bins):
             mask = (confidences > bin_boundaries[i]) & (confidences <= bin_boundaries[i + 1])
             if mask.sum() > 0:
                 bin_accuracies[i] = correct[mask].mean()
                 bin_counts[i] = mask.sum()
-        
+
         return bin_centers, bin_accuracies, bin_counts
 
 
 class EvaluationAnalyzer:
     """Analyze evaluation results."""
-    
+
     @staticmethod
     def identify_underperforming_clients(
         client_metrics: List[ClientMetrics],
@@ -547,7 +547,7 @@ class EvaluationAnalyzer:
         accuracies = [m.accuracy for m in client_metrics]
         threshold = np.percentile(accuracies, threshold_percentile)
         return [m.client_id for m in client_metrics if m.accuracy < threshold]
-    
+
     @staticmethod
     def analyze_class_performance(
         client_metrics: List[ClientMetrics],
@@ -555,7 +555,7 @@ class EvaluationAnalyzer:
     ) -> Dict[int, Dict[str, float]]:
         """Analyze per-class performance across clients."""
         class_stats = {}
-        
+
         for c in range(num_classes):
             class_accs = [
                 m.per_class_accuracy.get(c, 0)
@@ -569,9 +569,9 @@ class EvaluationAnalyzer:
                     "min": np.min(class_accs),
                     "max": np.max(class_accs),
                 }
-        
+
         return class_stats
-    
+
     @staticmethod
     def compute_correlation_with_size(
         client_metrics: List[ClientMetrics],
@@ -579,10 +579,10 @@ class EvaluationAnalyzer:
         """Compute correlation between dataset size and accuracy."""
         sizes = [m.num_samples for m in client_metrics]
         accs = [m.accuracy for m in client_metrics]
-        
+
         if len(sizes) < 2:
             return 0.0
-        
+
         return np.corrcoef(sizes, accs)[0, 1]
 
 
@@ -590,9 +590,9 @@ def create_test_scenario():
     """Create test scenario for demonstration."""
     np.random.seed(42)
     torch.manual_seed(42)
-    
+
     config = EvalConfig()
-    
+
     # Create datasets
     num_clients = 10
     client_datasets = []
@@ -603,26 +603,26 @@ def create_test_scenario():
         for j in range(n):
             x[j, y[j] % 32] += 2.0 + i * 0.1
         client_datasets.append(EvalDataset(x, y, client_id=i))
-    
+
     # Global test
     test_x = np.random.randn(500, 32).astype(np.float32)
     test_y = np.random.randint(0, 10, 500)
     for j in range(500):
         test_x[j, test_y[j] % 32] += 2.0
     global_test = EvalDataset(test_x, test_y)
-    
+
     # Model
     model = EvalModel()
-    
+
     # Evaluate
     evaluator = FLEvaluator(config)
     report = evaluator.full_evaluation(model, global_test, client_datasets)
-    
+
     print(f"Global Accuracy: {report.global_metrics.accuracy:.4f}")
     print(f"Weighted Accuracy: {report.weighted_accuracy:.4f}")
     print(f"Jain Index: {report.fairness_metrics.jain_index:.4f}")
     print(f"Accuracy Gap: {report.fairness_metrics.accuracy_gap:.4f}")
-    
+
     analyzer = EvaluationAnalyzer()
     underperforming = analyzer.identify_underperforming_clients(report.client_metrics)
     print(f"Underperforming clients: {underperforming}")

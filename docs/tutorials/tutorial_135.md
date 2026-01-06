@@ -124,37 +124,37 @@ class SelectionStrategy(Enum):
 @dataclass
 class ScalabilityConfig:
     """Configuration for scalable FL."""
-    
+
     # FL parameters
     num_rounds: int = 50
     num_clients: int = 1000
     clients_per_round: int = 50  # 5% sampling
-    
+
     # Model parameters
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     # Training parameters
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 2
-    
+
     # Scalability parameters
     compression_ratio: float = 0.1
     use_async: bool = True
     max_workers: int = 10
     selection_strategy: SelectionStrategy = SelectionStrategy.WEIGHTED
-    
+
     # Data parameters
     samples_per_client: int = 50
-    
+
     seed: int = 42
 
 
 class ScalableDataset(Dataset):
     """Minimal dataset for scalability testing."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -164,92 +164,92 @@ class ScalableDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class ScalableModel(nn.Module):
     """Model for scalability testing."""
-    
+
     def __init__(self, config: ScalabilityConfig):
         super().__init__()
-        
+
         self.layers = nn.Sequential(
             nn.Linear(config.input_dim, config.hidden_dim),
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.layers(x)
 
 
 class GradientCompressor:
     """Compressor for bandwidth efficiency."""
-    
+
     def __init__(self, ratio: float = 0.1):
         self.ratio = ratio
         self.error_feedback: Dict[str, torch.Tensor] = {}
-    
+
     def compress(
         self,
         state_dict: Dict[str, torch.Tensor]
     ) -> Dict[str, Any]:
         """Top-k sparsification with error feedback."""
         compressed = {}
-        
+
         for name, tensor in state_dict.items():
             # Apply error feedback
             if name in self.error_feedback:
                 tensor = tensor + self.error_feedback[name]
-            
+
             flat = tensor.flatten()
             k = max(1, int(len(flat) * self.ratio))
-            
+
             values, indices = torch.topk(flat.abs(), k)
             selected = flat[indices]
-            
+
             # Store error
             mask = torch.zeros_like(flat)
             mask[indices] = 1
             self.error_feedback[name] = (flat * (1 - mask)).reshape(tensor.shape)
-            
+
             compressed[name] = {
                 "indices": indices,
                 "values": selected,
                 "shape": tensor.shape
             }
-        
+
         return compressed
-    
+
     def decompress(
         self,
         compressed: Dict[str, Any]
     ) -> Dict[str, torch.Tensor]:
         """Reconstruct state dict."""
         state_dict = {}
-        
+
         for name, data in compressed.items():
             flat = torch.zeros(int(np.prod(data["shape"])))
             flat[data["indices"]] = data["values"]
             state_dict[name] = flat.reshape(data["shape"])
-        
+
         return state_dict
 
 
 class ClientSelector:
     """Client selection strategies for scale."""
-    
+
     def __init__(
         self,
         strategy: SelectionStrategy,
@@ -257,24 +257,24 @@ class ClientSelector:
     ):
         self.strategy = strategy
         self.num_clients = num_clients
-        
+
         # Track client statistics
         self.client_stats: Dict[int, Dict] = {
             i: {"rounds": 0, "loss": 1.0, "samples": 0}
             for i in range(num_clients)
         }
-    
+
     def update_stats(self, client_id: int, loss: float, samples: int) -> None:
         """Update client statistics."""
         self.client_stats[client_id]["rounds"] += 1
         self.client_stats[client_id]["loss"] = loss
         self.client_stats[client_id]["samples"] = samples
-    
+
     def select(self, k: int) -> List[int]:
         """Select k clients."""
         if self.strategy == SelectionStrategy.RANDOM:
             return list(np.random.choice(self.num_clients, k, replace=False))
-        
+
         elif self.strategy == SelectionStrategy.WEIGHTED:
             # Weight by data size
             weights = np.array([
@@ -285,7 +285,7 @@ class ClientSelector:
             return list(np.random.choice(
                 self.num_clients, k, replace=False, p=weights
             ))
-        
+
         elif self.strategy == SelectionStrategy.PRIORITIZED:
             # Prioritize high-loss clients
             losses = [
@@ -297,13 +297,13 @@ class ClientSelector:
             return list(np.random.choice(
                 self.num_clients, k, replace=False, p=weights
             ))
-        
+
         return list(np.random.choice(self.num_clients, k, replace=False))
 
 
 class ScalableClient:
     """Lightweight client for scale testing."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -314,32 +314,32 @@ class ScalableClient:
         self.dataset = dataset
         self.config = config
         self.compressor = GradientCompressor(config.compression_ratio)
-    
+
     def train(
         self,
         model_state: Dict[str, torch.Tensor]
     ) -> Dict[str, Any]:
         """Train and return compressed update."""
-        
+
         # Create local model
         local_model = ScalableModel(self.config)
         local_model.load_state_dict(model_state)
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local_model.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
@@ -347,16 +347,16 @@ class ScalableClient:
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(local_model.parameters(), 1.0)
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Compress update
         update = {
             k: v.cpu() for k, v in local_model.state_dict().items()
         }
         compressed = self.compressor.compress(update)
-        
+
         return {
             "compressed": compressed,
             "num_samples": len(self.dataset),
@@ -367,7 +367,7 @@ class ScalableClient:
 
 class ScalableServer:
     """Server designed for scale."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -379,14 +379,14 @@ class ScalableServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.selector = ClientSelector(
             config.selection_strategy,
             len(clients)
         )
         self.compressor = GradientCompressor(config.compression_ratio)
         self.history: List[Dict] = []
-    
+
     def _train_client(
         self,
         client: ScalableClient,
@@ -394,70 +394,70 @@ class ScalableServer:
     ) -> Dict[str, Any]:
         """Train single client (for parallel execution)."""
         return client.train(model_state)
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate compressed updates."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = None
-        
+
         for u in updates:
             decompressed = self.compressor.decompress(u["compressed"])
             weight = u["num_samples"] / total_samples
-            
+
             if new_state is None:
                 new_state = {k: v * weight for k, v in decompressed.items()}
             else:
                 for k, v in decompressed.items():
                     new_state[k] += v * weight
-        
+
         if new_state:
             self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x)
                 loss = F.cross_entropy(output, y)
                 pred = output.argmax(dim=1)
-                
+
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += loss.item() * len(y)
-        
+
         return {
             "accuracy": correct / total,
             "loss": total_loss / total
         }
-    
+
     def train(self) -> List[Dict]:
         """Run scalable FL training."""
         logger.info(
             f"Starting FL with {len(self.clients)} clients, "
             f"{self.config.clients_per_round} per round"
         )
-        
+
         for round_num in range(self.config.num_rounds):
             start_time = time.time()
-            
+
             # Select clients
             selected_ids = self.selector.select(self.config.clients_per_round)
             selected_clients = [self.clients[i] for i in selected_ids]
-            
+
             # Get current model state
             model_state = {
                 k: v.clone() for k, v in self.model.state_dict().items()
             }
-            
+
             # Train in parallel if async enabled
             updates = []
             if self.config.use_async:
@@ -468,12 +468,12 @@ class ScalableServer:
                         ): client
                         for client in selected_clients
                     }
-                    
+
                     for future in as_completed(futures):
                         try:
                             update = future.result()
                             updates.append(update)
-                            
+
                             # Update client stats
                             self.selector.update_stats(
                                 update["client_id"],
@@ -491,14 +491,14 @@ class ScalableServer:
                         update["avg_loss"],
                         update["num_samples"]
                     )
-            
+
             # Aggregate
             self.aggregate(updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
             round_time = time.time() - start_time
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -507,7 +507,7 @@ class ScalableServer:
                 "avg_loss": np.mean([u["avg_loss"] for u in updates])
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: "
@@ -515,7 +515,7 @@ class ScalableServer:
                     f"time={round_time:.2f}s, "
                     f"clients={len(updates)}"
                 )
-        
+
         return self.history
 
 
@@ -524,11 +524,11 @@ def main():
     print("=" * 60)
     print("Tutorial 135: FL Scalability")
     print("=" * 60)
-    
+
     config = ScalabilityConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create many clients
     logger.info(f"Creating {config.num_clients} clients...")
     clients = []
@@ -541,22 +541,22 @@ def main():
         )
         client = ScalableClient(i, dataset, config)
         clients.append(client)
-    
+
     # Test data
     test_data = ScalableDataset(
         client_id=999999,
         n=500,
         seed=999999
     )
-    
+
     # Model
     model = ScalableModel(config)
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
-    
+
     # Train
     server = ScalableServer(model, clients, test_data, config)
     history = server.train()
-    
+
     # Summary
     avg_time = np.mean([r["round_time_s"] for r in history])
     print("\n" + "=" * 60)

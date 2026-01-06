@@ -188,11 +188,11 @@ class HeterogeneityType(Enum):
 @dataclass
 class BenchmarkConfig:
     """Configuration for FL benchmarking experiments."""
-    
+
     # Experiment identification
     experiment_name: str = "fl_benchmark"
     experiment_id: str = field(default_factory=lambda: "")
-    
+
     # Training parameters
     num_rounds: int = 100
     num_clients: int = 100
@@ -200,26 +200,26 @@ class BenchmarkConfig:
     local_epochs: int = 5
     batch_size: int = 32
     learning_rate: float = 0.01
-    
+
     # Data heterogeneity
     heterogeneity_type: HeterogeneityType = HeterogeneityType.DIRICHLET
     dirichlet_alpha: float = 0.5
     pathological_shards: int = 2
-    
+
     # Model configuration
     input_dim: int = 784
     hidden_dim: int = 128
     num_classes: int = 10
-    
+
     # Evaluation
     eval_frequency: int = 5
     num_eval_clients: int = 20
-    
+
     # Reproducibility
     seed: int = 42
     num_runs: int = 5
     seeds: List[int] = field(default_factory=list)
-    
+
     def __post_init__(self):
         if not self.seeds:
             self.seeds = [self.seed + i * 1000 for i in range(self.num_runs)]
@@ -238,7 +238,7 @@ class RoundMetrics:
     round_time_seconds: float
     bytes_communicated: int
     participating_clients: int
-    
+
     def to_dict(self) -> Dict:
         return asdict(self)
 
@@ -254,7 +254,7 @@ class ExperimentResult:
     rounds_to_target: Dict[float, int]
     total_time: float
     total_bytes: int
-    
+
     def to_dict(self) -> Dict:
         return {
             "seed": self.seed,
@@ -268,7 +268,7 @@ class ExperimentResult:
 
 class BenchmarkDataset(Dataset):
     """Dataset for benchmarking with controlled heterogeneity."""
-    
+
     def __init__(
         self,
         features: np.ndarray,
@@ -278,17 +278,17 @@ class BenchmarkDataset(Dataset):
         self.features = torch.FloatTensor(features)
         self.labels = torch.LongTensor(labels)
         self.client_id = client_id
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.features[idx], self.labels[idx]
-    
+
     @property
     def num_samples(self) -> int:
         return len(self.labels)
-    
+
     def get_label_distribution(self, num_classes: int) -> np.ndarray:
         """Get distribution of labels in the dataset."""
         dist = np.zeros(num_classes)
@@ -303,10 +303,10 @@ class BenchmarkDataset(Dataset):
 ```python
 class DataPartitioner:
     """Partition data with various heterogeneity patterns."""
-    
+
     def __init__(self, config: BenchmarkConfig):
         self.config = config
-    
+
     def create_iid_partitions(
         self,
         features: np.ndarray,
@@ -316,12 +316,12 @@ class DataPartitioner:
         n = len(labels)
         indices = np.random.permutation(n)
         splits = np.array_split(indices, self.config.num_clients)
-        
+
         return [
             BenchmarkDataset(features[split], labels[split], i)
             for i, split in enumerate(splits)
         ]
-    
+
     def create_dirichlet_partitions(
         self,
         features: np.ndarray,
@@ -330,33 +330,33 @@ class DataPartitioner:
         """Create non-IID partitions using Dirichlet distribution."""
         num_classes = self.config.num_classes
         alpha = self.config.dirichlet_alpha
-        
+
         # Generate label distribution for each client
         label_distributions = np.random.dirichlet(
             [alpha] * num_classes,
             self.config.num_clients
         )
-        
+
         # Organize data by class
         class_indices = {c: np.where(labels == c)[0] for c in range(num_classes)}
-        
+
         # Assign data to clients
         client_indices = [[] for _ in range(self.config.num_clients)]
-        
+
         for c in range(num_classes):
             class_idx = class_indices[c].copy()
             np.random.shuffle(class_idx)
-            
+
             # Distribute according to Dirichlet proportions
             proportions = label_distributions[:, c]
             proportions = proportions / proportions.sum()
-            
+
             split_points = (np.cumsum(proportions) * len(class_idx)).astype(int)
             splits = np.split(class_idx, split_points[:-1])
-            
+
             for i, split in enumerate(splits):
                 client_indices[i].extend(split.tolist())
-        
+
         return [
             BenchmarkDataset(
                 features[np.array(indices)],
@@ -366,7 +366,7 @@ class DataPartitioner:
             for i, indices in enumerate(client_indices)
             if len(indices) > 0
         ]
-    
+
     def create_pathological_partitions(
         self,
         features: np.ndarray,
@@ -375,10 +375,10 @@ class DataPartitioner:
         """Create pathological non-IID partitions (few classes per client)."""
         num_classes = self.config.num_classes
         shards = self.config.pathological_shards
-        
+
         # Sort by label
         sorted_indices = np.argsort(labels)
-        
+
         # Create shards
         num_shards = self.config.num_clients * shards
         shard_size = len(labels) // num_shards
@@ -386,10 +386,10 @@ class DataPartitioner:
             sorted_indices[i * shard_size:(i + 1) * shard_size]
             for i in range(num_shards)
         ]
-        
+
         # Randomly assign shards to clients
         np.random.shuffle(shard_indices)
-        
+
         client_datasets = []
         for i in range(self.config.num_clients):
             client_shards = shard_indices[i * shards:(i + 1) * shards]
@@ -397,9 +397,9 @@ class DataPartitioner:
             client_datasets.append(
                 BenchmarkDataset(features[indices], labels[indices], i)
             )
-        
+
         return client_datasets
-    
+
     def create_partitions(
         self,
         features: np.ndarray,
@@ -418,10 +418,10 @@ class DataPartitioner:
 
 class SyntheticDataGenerator:
     """Generate synthetic data for benchmarking."""
-    
+
     def __init__(self, config: BenchmarkConfig):
         self.config = config
-    
+
     def generate(
         self,
         num_train: int = 60000,
@@ -431,24 +431,24 @@ class SyntheticDataGenerator:
         # Generate train data
         train_features = np.random.randn(num_train, self.config.input_dim).astype(np.float32)
         train_labels = np.random.randint(0, self.config.num_classes, num_train)
-        
+
         # Add class-specific patterns
         for i in range(num_train):
             label = train_labels[i]
             start_idx = (label * self.config.input_dim) // self.config.num_classes
             end_idx = start_idx + self.config.input_dim // self.config.num_classes
             train_features[i, start_idx:end_idx] += 2.0
-        
+
         # Generate test data
         test_features = np.random.randn(num_test, self.config.input_dim).astype(np.float32)
         test_labels = np.random.randint(0, self.config.num_classes, num_test)
-        
+
         for i in range(num_test):
             label = test_labels[i]
             start_idx = (label * self.config.input_dim) // self.config.num_classes
             end_idx = start_idx + self.config.input_dim // self.config.num_classes
             test_features[i, start_idx:end_idx] += 2.0
-        
+
         return train_features, train_labels, test_features, test_labels
 ```
 
@@ -457,11 +457,11 @@ class SyntheticDataGenerator:
 ```python
 class BenchmarkModel(nn.Module):
     """Standard model for benchmarking."""
-    
+
     def __init__(self, config: BenchmarkConfig):
         super().__init__()
         self.config = config
-        
+
         self.network = nn.Sequential(
             nn.Linear(config.input_dim, config.hidden_dim),
             nn.ReLU(),
@@ -471,17 +471,17 @@ class BenchmarkModel(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(config.hidden_dim // 2, config.num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
-    
+
     def get_size_bytes(self) -> int:
         return sum(p.numel() * 4 for p in self.parameters())
 
 
 class FLClient:
     """Standard FL client for benchmarking."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -491,11 +491,11 @@ class FLClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     @property
     def num_samples(self) -> int:
         return len(self.dataset)
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Perform local training."""
         local_model = copy.deepcopy(model)
@@ -504,17 +504,17 @@ class FLClient:
             lr=self.config.learning_rate,
             momentum=0.9,
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True,
         )
-        
+
         local_model.train()
         total_loss = 0.0
         num_samples = 0
-        
+
         for _ in range(self.config.local_epochs):
             for features, labels in loader:
                 optimizer.zero_grad()
@@ -522,36 +522,36 @@ class FLClient:
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item() * len(labels)
                 num_samples += len(labels)
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local_model.state_dict().items()},
             "num_samples": self.num_samples,
             "loss": total_loss / num_samples if num_samples > 0 else 0,
             "client_id": self.client_id,
         }
-    
+
     def evaluate(self, model: nn.Module) -> Dict[str, float]:
         """Evaluate model on local data."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=128)
-        
+
         correct = 0
         total = 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = model(features)
                 loss = F.cross_entropy(outputs, labels)
                 preds = outputs.argmax(dim=1)
-                
+
                 correct += (preds == labels).sum().item()
                 total += len(labels)
                 total_loss += loss.item() * len(labels)
-        
+
         return {
             "accuracy": correct / total if total > 0 else 0,
             "loss": total_loss / total if total > 0 else 0,
@@ -560,7 +560,7 @@ class FLClient:
 
 class FLServer:
     """Standard FL server for benchmarking."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -573,72 +573,72 @@ class FLServer:
         self.test_dataset = test_dataset
         self.config = config
         self.history: List[RoundMetrics] = []
-    
+
     def select_clients(self) -> List[FLClient]:
         """Select clients for this round."""
         num_selected = min(self.config.clients_per_round, len(self.clients))
         return list(np.random.choice(self.clients, num_selected, replace=False))
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate client updates using FedAvg."""
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         new_state = {}
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate_global(self) -> Tuple[float, float]:
         """Evaluate model on test set."""
         self.model.eval()
         loader = DataLoader(self.test_dataset, batch_size=128)
-        
+
         correct = 0
         total = 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = self.model(features)
                 loss = F.cross_entropy(outputs, labels)
                 preds = outputs.argmax(dim=1)
-                
+
                 correct += (preds == labels).sum().item()
                 total += len(labels)
                 total_loss += loss.item() * len(labels)
-        
+
         return correct / total, total_loss / total
-    
+
     def evaluate_clients(self) -> List[float]:
         """Evaluate model on subset of clients."""
         eval_clients = self.clients[:self.config.num_eval_clients]
         return [c.evaluate(self.model)["accuracy"] for c in eval_clients]
-    
+
     def train_round(self, round_num: int) -> RoundMetrics:
         """Execute one training round."""
         start_time = time.time()
-        
+
         # Select and train clients
         selected = self.select_clients()
         updates = [client.train(self.model) for client in selected]
-        
+
         # Aggregate
         self.aggregate(updates)
-        
+
         # Calculate communication
         bytes_per_update = self.model.get_size_bytes()
         total_bytes = len(updates) * bytes_per_update * 2  # up + down
-        
+
         # Evaluate
         global_acc, global_loss = self.evaluate_global()
         client_accs = self.evaluate_clients()
-        
+
         elapsed = time.time() - start_time
-        
+
         return RoundMetrics(
             round_num=round_num,
             global_accuracy=global_acc,
@@ -648,16 +648,16 @@ class FLServer:
             bytes_communicated=total_bytes,
             participating_clients=len(updates),
         )
-    
+
     def train(self) -> List[RoundMetrics]:
         """Run full training."""
         for round_num in range(self.config.num_rounds):
             metrics = self.train_round(round_num)
             self.history.append(metrics)
-            
+
             if (round_num + 1) % self.config.eval_frequency == 0:
                 print(f"Round {round_num + 1}: acc={metrics.global_accuracy:.4f}")
-        
+
         return self.history
 ```
 
@@ -666,45 +666,45 @@ class FLServer:
 ```python
 class BenchmarkRunner:
     """Run and analyze FL benchmarks."""
-    
+
     def __init__(self, config: BenchmarkConfig):
         self.config = config
         self.results: List[ExperimentResult] = []
-    
+
     def run_single(self, seed: int) -> ExperimentResult:
         """Run a single experiment."""
         torch.manual_seed(seed)
         np.random.seed(seed)
-        
+
         # Generate data
         generator = SyntheticDataGenerator(self.config)
         train_x, train_y, test_x, test_y = generator.generate()
-        
+
         # Partition data
         partitioner = DataPartitioner(self.config)
         client_datasets = partitioner.create_partitions(train_x, train_y)
         test_dataset = BenchmarkDataset(test_x, test_y)
-        
+
         # Create clients
         clients = [
             FLClient(i, dataset, self.config)
             for i, dataset in enumerate(client_datasets)
         ]
-        
+
         # Create server
         model = BenchmarkModel(self.config)
         server = FLServer(model, clients, test_dataset, self.config)
-        
+
         # Train
         start_time = time.time()
         history = server.train()
         total_time = time.time() - start_time
-        
+
         # Compute summary metrics
         final_acc = history[-1].global_accuracy
         best_acc = max(m.global_accuracy for m in history)
         total_bytes = sum(m.bytes_communicated for m in history)
-        
+
         # Rounds to reach targets
         targets = [0.5, 0.6, 0.7, 0.8, 0.9]
         rounds_to_target = {}
@@ -715,7 +715,7 @@ class BenchmarkRunner:
                     break
             else:
                 rounds_to_target[target] = -1
-        
+
         return ExperimentResult(
             config=self.config,
             seed=seed,
@@ -726,25 +726,25 @@ class BenchmarkRunner:
             total_time=total_time,
             total_bytes=total_bytes,
         )
-    
+
     def run_all(self) -> List[ExperimentResult]:
         """Run all experiment seeds."""
         for seed in self.config.seeds:
             print(f"\n--- Running seed {seed} ---")
             result = self.run_single(seed)
             self.results.append(result)
-        
+
         return self.results
-    
+
     def get_summary(self) -> Dict[str, Any]:
         """Get summary statistics across runs."""
         if not self.results:
             return {}
-        
+
         final_accs = [r.final_accuracy for r in self.results]
         best_accs = [r.best_accuracy for r in self.results]
         times = [r.total_time for r in self.results]
-        
+
         return {
             "num_runs": len(self.results),
             "final_accuracy_mean": np.mean(final_accs),
@@ -754,17 +754,17 @@ class BenchmarkRunner:
             "best_accuracy_std": np.std(best_accs),
             "avg_time_seconds": np.mean(times),
         }
-    
+
     def compare_with(self, other: 'BenchmarkRunner') -> Dict[str, Any]:
         """Statistical comparison with another benchmark."""
         my_accs = [r.final_accuracy for r in self.results]
         other_accs = [r.final_accuracy for r in other.results]
-        
+
         t_stat, p_value = stats.ttest_ind(my_accs, other_accs)
-        
+
         pooled_std = np.sqrt((np.var(my_accs) + np.var(other_accs)) / 2)
         effect_size = (np.mean(my_accs) - np.mean(other_accs)) / pooled_std
-        
+
         return {
             "t_statistic": t_stat,
             "p_value": p_value,
@@ -785,10 +785,10 @@ def run_benchmark_example():
         input_dim=32,
         hidden_dim=64,
     )
-    
+
     runner = BenchmarkRunner(config)
     runner.run_all()
-    
+
     summary = runner.get_summary()
     print(f"\n=== Benchmark Summary ===")
     for key, value in summary.items():

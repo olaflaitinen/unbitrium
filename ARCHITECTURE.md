@@ -300,11 +300,11 @@ flowchart TD
     B --> C[Create Global Model]
     B --> D[Initialize Partitioner]
     B --> E[Setup Aggregator]
-    
+
     C --> F[3. Training Loop]
     D --> F
     E --> F
-    
+
     F --> G[Client Selection]
     G --> H[Model Broadcast]
     H --> I[Local Training]
@@ -312,10 +312,10 @@ flowchart TD
     J --> K[Aggregation]
     K --> L[Metric Computation]
     L --> M{More Rounds?}
-    
+
     M -->|Yes| G
     M -->|No| N[4. Finalization]
-    
+
     N --> O[Save Checkpoints]
     N --> P[Final Metrics]
     N --> Q[Generate Report]
@@ -330,12 +330,12 @@ sequenceDiagram
     participant GlobalModel
 
     Clients->>Aggregator: Send updates [update_1, update_2, ...]
-    
+
     Note over Aggregator: 1. Validate updates
     Note over Aggregator: 2. Compute weights
     Note over Aggregator: 3. Aggregate parameters
     Note over Aggregator: 4. Compute metrics
-    
+
     Aggregator->>GlobalModel: Updated model weights
     Aggregator->>Clients: Aggregation metrics
 ```

@@ -56,14 +56,14 @@ def fedavg_aggregate(
 ) -> Dict[str, torch.Tensor]:
     """
     Federated Averaging aggregation.
-    
+
     Args:
         updates: List of client updates with 'state_dict' and weight_key
         weight_key: Key for weighting (usually 'num_samples')
-    
+
     Returns:
         Aggregated state dictionary
-    
+
     Usage:
         updates = [{'state_dict': {...}, 'num_samples': 100}, ...]
         new_state = fedavg_aggregate(updates)
@@ -71,14 +71,14 @@ def fedavg_aggregate(
     """
     total_weight = sum(u[weight_key] for u in updates)
     new_state = {}
-    
+
     for key in updates[0]["state_dict"]:
         weighted_sum = sum(
             (u[weight_key] / total_weight) * u["state_dict"][key].float()
             for u in updates
         )
         new_state[key] = weighted_sum
-    
+
     return new_state
 ```
 
@@ -93,16 +93,16 @@ def fedprox_loss(
 ) -> torch.Tensor:
     """
     FedProx loss with proximal term.
-    
+
     Args:
         loss: Original task loss
         local_model: Local model being trained
         global_model: Global model (reference)
         mu: Proximal term coefficient
-    
+
     Returns:
         Loss with proximal regularization
-    
+
     Usage:
         loss = F.cross_entropy(output, target)
         loss = fedprox_loss(loss, local_model, global_model, mu=0.01)
@@ -114,7 +114,7 @@ def fedprox_loss(
         global_model.named_parameters()
     ):
         proximal_term += ((local_param - global_param.detach()) ** 2).sum()
-    
+
     return loss + (mu / 2) * proximal_term
 ```
 
@@ -127,14 +127,14 @@ def clip_gradients(
 ) -> float:
     """
     Clip gradients by norm.
-    
+
     Args:
         model: Model with gradients
         max_norm: Maximum gradient norm
-    
+
     Returns:
         Total gradient norm before clipping
-    
+
     Usage:
         loss.backward()
         grad_norm = clip_gradients(model, max_norm=1.0)
@@ -178,27 +178,27 @@ import copy
 @dataclass
 class FLConfig:
     """Standard FL configuration template."""
-    
+
     # FL parameters
     num_rounds: int = 50
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     # Model parameters
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     # Training parameters
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Advanced
     gradient_clip: float = 1.0
     weight_decay: float = 0.0
     momentum: float = 0.0
-    
+
     # Reproducibility
     seed: int = 42
 
@@ -209,7 +209,7 @@ class FLConfig:
 
 class FLDataset(Dataset):
     """Standard FL dataset template."""
-    
+
     def __init__(
         self,
         n: int = 100,
@@ -220,14 +220,14 @@ class FLDataset(Dataset):
         np.random.seed(seed)
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         # Add class-specific patterns
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
@@ -238,7 +238,7 @@ class FLDataset(Dataset):
 
 class SimpleMLP(nn.Module):
     """Simple MLP for classification."""
-    
+
     def __init__(self, input_dim: int, hidden_dim: int, num_classes: int):
         super().__init__()
         self.net = nn.Sequential(
@@ -246,14 +246,14 @@ class SimpleMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
 
 class CNN(nn.Module):
     """Simple CNN for image classification."""
-    
+
     def __init__(self, num_classes: int = 10):
         super().__init__()
         self.conv = nn.Sequential(
@@ -270,7 +270,7 @@ class CNN(nn.Module):
             nn.ReLU(),
             nn.Linear(128, num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv(x)
         return self.fc(x)
@@ -282,7 +282,7 @@ class CNN(nn.Module):
 
 class FLClient:
     """Standard FL client template."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -292,12 +292,12 @@ class FLClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Standard local training."""
         # Clone model
         local_model = copy.deepcopy(model)
-        
+
         # Setup optimizer
         optimizer = torch.optim.SGD(
             local_model.parameters(),
@@ -305,36 +305,36 @@ class FLClient:
             momentum=self.config.momentum,
             weight_decay=self.config.weight_decay
         )
-        
+
         # Data loader
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         # Training loop
         local_model.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 output = local_model(x)
                 loss = F.cross_entropy(output, y)
                 loss.backward()
-                
+
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(
                     local_model.parameters(),
                     self.config.gradient_clip
                 )
-                
+
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {
                 k: v.cpu() for k, v in local_model.state_dict().items()
@@ -350,7 +350,7 @@ class FLClient:
 
 class FLServer:
     """Standard FL server template."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -362,72 +362,72 @@ class FLServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-    
+
     def select_clients(self) -> List[FLClient]:
         """Random client selection."""
         n = min(self.config.clients_per_round, len(self.clients))
         indices = np.random.choice(len(self.clients), n, replace=False)
         return [self.clients[i] for i in indices]
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """FedAvg aggregation."""
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate on test data."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x)
                 loss = F.cross_entropy(output, y)
                 pred = output.argmax(dim=1)
-                
+
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += loss.item() * len(y)
-        
+
         return {
             "accuracy": correct / total,
             "loss": total_loss / total
         }
-    
+
     def train(self) -> List[Dict]:
         """Run FL training."""
         history = []
-        
+
         for round_num in range(self.config.num_rounds):
             # Select clients
             selected = self.select_clients()
-            
+
             # Collect updates
             updates = [c.train(self.model) for c in selected]
-            
+
             # Aggregate
             self.aggregate(updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 print(f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}")
-        
+
         return history
 
 
@@ -470,17 +470,17 @@ def create_non_iid_data(
 ) -> List[FLDataset]:
     """Create non-IID data using Dirichlet distribution."""
     datasets = []
-    
+
     for i in range(num_clients):
         # Dirichlet distribution for class imbalance
         class_probs = np.random.dirichlet([alpha] * num_classes)
-        
+
         dataset = FLDataset(
             n=samples_per_client,
             classes=num_classes,
             seed=i
         )
-        
+
         # Resample with class imbalance
         labels = np.random.choice(
             num_classes,
@@ -488,9 +488,9 @@ def create_non_iid_data(
             p=class_probs
         )
         dataset.y = torch.tensor(labels)
-        
+
         datasets.append(dataset)
-    
+
     return datasets
 
 
@@ -503,27 +503,27 @@ def main():
     print("=" * 60)
     print("Tutorial 155: FL Quick Reference")
     print("=" * 60)
-    
+
     # Setup
     config = FLConfig()
     set_seed(config.seed)
-    
+
     # Create components
     datasets = [FLDataset(seed=i) for i in range(config.num_clients)]
     clients = [FLClient(i, d, config) for i, d in enumerate(datasets)]
     test_data = FLDataset(n=200, seed=999)
-    
+
     model = SimpleMLP(
         config.input_dim,
         config.hidden_dim,
         config.num_classes
     )
     print(f"Model parameters: {count_parameters(model):,}")
-    
+
     # Train
     server = FLServer(model, clients, test_data, config)
     history = server.train()
-    
+
     print(f"\nFinal Accuracy: {history[-1]['accuracy']:.4f}")
 
 

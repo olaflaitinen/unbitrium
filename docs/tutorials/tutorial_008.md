@@ -270,7 +270,7 @@ class DirichletPartitioner:
                     range(len(client_indices)),
                     key=lambda x: len(client_indices[x]),
                 )
-                
+
                 needed = min_samples - len(indices)
                 if len(client_indices[largest]) > min_samples + needed:
                     borrowed = client_indices[largest][:needed]
@@ -320,7 +320,7 @@ class DirichletAnalyzer:
         """
         # Compute class distribution per client
         distributions = np.zeros((len(partitions), self.num_classes))
-        
+
         for i, indices in enumerate(partitions):
             client_labels = labels[indices]
             for label in client_labels:
@@ -388,7 +388,7 @@ def visualize_dirichlet_partitions(
 
     # Compute distributions
     distributions = np.zeros((len(partitions), num_classes))
-    
+
     for i, indices in enumerate(partitions):
         client_labels = labels[indices]
         for label in client_labels:
@@ -442,9 +442,9 @@ def compare_alpha_values(
         config = DirichletConfig(alpha=alpha)
         partitioner = DirichletPartitioner(config)
         partitions = partitioner.partition(labels)
-        
+
         stats = analyzer.compute_statistics(partitions, labels)
-        
+
         results[f"α={alpha}"] = {
             "avg_classes_per_client": np.mean(stats["classes_per_client"]),
             "avg_kl_divergence": stats["avg_kl_divergence"],
@@ -567,7 +567,7 @@ def train_with_dirichlet_partition(
         # Evaluate
         global_model.eval()
         round_client_accs = []
-        
+
         with torch.no_grad():
             for features, labels in client_data:
                 outputs = global_model(torch.FloatTensor(features))
@@ -602,7 +602,7 @@ def experiment_alpha_sweep() -> dict[str, Any]:
         print(f"\n{'='*50}")
         print(f"Training with α={alpha}")
         print('='*50)
-        
+
         result = train_with_dirichlet_partition(alpha=alpha, num_rounds=30)
         results[f"α={alpha}"] = result
 
@@ -610,7 +610,7 @@ def experiment_alpha_sweep() -> dict[str, Any]:
     print("\n" + "="*50)
     print("Summary")
     print("="*50)
-    
+
     for name, result in results.items():
         print(f"{name}: final_acc={result['final_accuracy']:.4f}")
 

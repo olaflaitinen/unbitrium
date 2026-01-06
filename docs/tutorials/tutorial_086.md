@@ -146,7 +146,7 @@ class SparsificationType(Enum):
 @dataclass
 class SparsificationConfig:
     """Configuration for gradient sparsification."""
-    
+
     # General
     num_rounds: int = 50
     num_clients: int = 20
@@ -155,19 +155,19 @@ class SparsificationConfig:
     batch_size: int = 32
     learning_rate: float = 0.01
     seed: int = 42
-    
+
     # Model
     input_dim: int = 32
     hidden_dim: int = 128
     num_classes: int = 10
-    
+
     # Sparsification
     sparsification_type: SparsificationType = SparsificationType.TOP_K
     top_k_ratio: float = 0.1  # Keep top 10%
     threshold: float = 0.001
     use_error_feedback: bool = True
     layer_wise_k: bool = False
-    
+
     # Adaptive
     adaptive_k: bool = False
     min_k_ratio: float = 0.01
@@ -176,24 +176,24 @@ class SparsificationConfig:
 
 class SparsificationDataset(Dataset):
     """Dataset for sparsification experiments."""
-    
+
     def __init__(self, num_samples: int, input_dim: int, num_classes: int, seed: int = 0):
         np.random.seed(seed)
         self.features = torch.randn(num_samples, input_dim)
         self.labels = torch.randint(0, num_classes, (num_samples,))
         for i in range(num_samples):
             self.features[i, self.labels[i].item() % input_dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.features[idx], self.labels[idx]
 
 
 class SparsificationModel(nn.Module):
     """Model for sparsification experiments."""
-    
+
     def __init__(self, config: SparsificationConfig):
         super().__init__()
         self.network = nn.Sequential(
@@ -203,17 +203,17 @@ class SparsificationModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim // 2, config.num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
 
 
 class GradientSparsifier:
     """Implements various gradient sparsification techniques."""
-    
+
     def __init__(self, config: SparsificationConfig):
         self.config = config
-    
+
     def top_k(
         self,
         gradient: torch.Tensor,
@@ -221,7 +221,7 @@ class GradientSparsifier:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Select top-k gradients by magnitude.
-        
+
         Returns:
             sparse_gradient: Tensor with only top-k values
             mask: Binary mask indicating selected positions
@@ -229,18 +229,18 @@ class GradientSparsifier:
         k_ratio = k_ratio or self.config.top_k_ratio
         flat = gradient.flatten()
         k = max(1, int(len(flat) * k_ratio))
-        
+
         # Get top-k indices
         _, indices = torch.topk(flat.abs(), k)
-        
+
         # Create sparse gradient
         mask = torch.zeros_like(flat)
         mask[indices] = 1.0
-        
+
         sparse = flat * mask
-        
+
         return sparse.view(gradient.shape), mask.view(gradient.shape)
-    
+
     def random_k(
         self,
         gradient: torch.Tensor,
@@ -248,7 +248,7 @@ class GradientSparsifier:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Randomly select k gradients.
-        
+
         Returns:
             sparse_gradient: Tensor with only k random values (scaled)
             mask: Binary mask indicating selected positions
@@ -256,20 +256,20 @@ class GradientSparsifier:
         k_ratio = k_ratio or self.config.top_k_ratio
         flat = gradient.flatten()
         k = max(1, int(len(flat) * k_ratio))
-        
+
         # Random selection
         indices = torch.randperm(len(flat))[:k]
-        
+
         # Create mask
         mask = torch.zeros_like(flat)
         mask[indices] = 1.0
-        
+
         # Scale to maintain expected value
         scale = 1.0 / k_ratio
         sparse = flat * mask * scale
-        
+
         return sparse.view(gradient.shape), mask.view(gradient.shape)
-    
+
     def threshold_based(
         self,
         gradient: torch.Tensor,
@@ -277,30 +277,30 @@ class GradientSparsifier:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Select gradients above threshold.
-        
+
         Returns:
             sparse_gradient: Tensor with values above threshold
             mask: Binary mask indicating selected positions
         """
         threshold = threshold or self.config.threshold
-        
+
         mask = (gradient.abs() >= threshold).float()
         sparse = gradient * mask
-        
+
         return sparse, mask
-    
+
     def sign_sparsification(
         self,
         gradient: torch.Tensor,
     ) -> torch.Tensor:
         """
         Return only the sign of gradients (1-bit compression).
-        
+
         Returns:
             sign_gradient: Tensor with only signs (-1, 0, +1)
         """
         return torch.sign(gradient) * gradient.abs().mean()
-    
+
     def layer_wise_top_k(
         self,
         gradients: Dict[str, torch.Tensor],
@@ -309,13 +309,13 @@ class GradientSparsifier:
         """Apply top-k sparsification to each layer separately."""
         k_ratio = k_ratio or self.config.top_k_ratio
         result = {}
-        
+
         for name, grad in gradients.items():
             sparse, mask = self.top_k(grad, k_ratio)
             result[name] = (sparse, mask)
-        
+
         return result
-    
+
     def sparsify(
         self,
         gradient: torch.Tensor,
@@ -323,7 +323,7 @@ class GradientSparsifier:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply sparsification based on configuration."""
         method = method or self.config.sparsification_type
-        
+
         if method == SparsificationType.TOP_K:
             return self.top_k(gradient)
         elif method == SparsificationType.RANDOM_K:
@@ -335,7 +335,7 @@ class GradientSparsifier:
             return sign, torch.ones_like(gradient)
         else:
             return gradient, torch.ones_like(gradient)
-    
+
     def compute_sparsity(self, sparse_tensor: torch.Tensor) -> float:
         """Compute sparsity ratio of a tensor."""
         return (sparse_tensor == 0).sum().item() / sparse_tensor.numel()
@@ -346,7 +346,7 @@ class GradientSparsifier:
 ```python
 class ErrorFeedbackClient:
     """FL client with error feedback for gradient sparsification."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -357,32 +357,32 @@ class ErrorFeedbackClient:
         self.dataset = dataset
         self.config = config
         self.sparsifier = GradientSparsifier(config)
-        
+
         # Error accumulator for each parameter
         self.error_buffer: Dict[str, torch.Tensor] = {}
-    
+
     def _initialize_error_buffer(self, model: nn.Module) -> None:
         """Initialize error buffer with zeros."""
         for name, param in model.named_parameters():
             if param.requires_grad:
                 self.error_buffer[name] = torch.zeros_like(param)
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """
         Train locally with gradient sparsification and error feedback.
         """
         local_model = copy.deepcopy(model)
-        
+
         # Initialize error buffer if needed
         if not self.error_buffer:
             self._initialize_error_buffer(local_model)
-        
+
         # Store initial parameters
         initial_params = {
             name: param.clone().detach()
             for name, param in local_model.named_parameters()
         }
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -392,11 +392,11 @@ class ErrorFeedbackClient:
             batch_size=self.config.batch_size,
             shuffle=True,
         )
-        
+
         local_model.train()
         total_loss = 0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for features, labels in loader:
                 optimizer.zero_grad()
@@ -404,43 +404,43 @@ class ErrorFeedbackClient:
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Compute update (pseudo-gradient)
         updates = {}
         for name, param in local_model.named_parameters():
             updates[name] = param.data - initial_params[name]
-        
+
         # Apply error feedback
         if self.config.use_error_feedback:
             for name in updates:
                 updates[name] = updates[name] + self.error_buffer[name]
-        
+
         # Sparsify
         sparse_updates = {}
         new_errors = {}
         total_elements = 0
         nonzero_elements = 0
-        
+
         for name, update in updates.items():
             sparse, mask = self.sparsifier.sparsify(update)
             sparse_updates[name] = sparse
-            
+
             # Compute new error
             if self.config.use_error_feedback:
                 new_errors[name] = update - sparse
-            
+
             total_elements += update.numel()
             nonzero_elements += (sparse != 0).sum().item()
-        
+
         # Update error buffer
         if self.config.use_error_feedback:
             self.error_buffer = new_errors
-        
+
         sparsity = 1.0 - (nonzero_elements / total_elements)
-        
+
         return {
             "updates": sparse_updates,
             "num_samples": len(self.dataset),
@@ -452,7 +452,7 @@ class ErrorFeedbackClient:
 
 class SparseFLServer:
     """FL server for sparse gradient aggregation."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -465,11 +465,11 @@ class SparseFLServer:
         self.test_dataset = test_dataset
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate_sparse_updates(self, client_updates: List[Dict]) -> None:
         """Aggregate sparse updates from clients."""
         total_samples = sum(u["num_samples"] for u in client_updates)
-        
+
         with torch.no_grad():
             for name, param in self.model.named_parameters():
                 aggregated = sum(
@@ -477,12 +477,12 @@ class SparseFLServer:
                     for u in client_updates
                 )
                 param.data += aggregated
-    
+
     def evaluate(self) -> Tuple[float, float]:
         """Evaluate global model."""
         self.model.eval()
         loader = DataLoader(self.test_dataset, batch_size=128)
-        
+
         correct, total, total_loss = 0, 0, 0.0
         with torch.no_grad():
             for features, labels in loader:
@@ -490,9 +490,9 @@ class SparseFLServer:
                 total_loss += F.cross_entropy(outputs, labels).item() * len(labels)
                 correct += (outputs.argmax(1) == labels).sum().item()
                 total += len(labels)
-        
+
         return correct / total, total_loss / total
-    
+
     def train(self) -> List[Dict]:
         """Run sparse FL training."""
         for round_num in range(self.config.num_rounds):
@@ -502,18 +502,18 @@ class SparseFLServer:
                 min(self.config.clients_per_round, len(self.clients)),
                 replace=False,
             )
-            
+
             # Collect sparse updates
             updates = [c.train(self.model) for c in selected]
-            
+
             # Aggregate
             self.aggregate_sparse_updates(updates)
-            
+
             # Evaluate
             acc, loss = self.evaluate()
             avg_sparsity = np.mean([u["sparsity"] for u in updates])
             avg_compression = np.mean([u["compression_ratio"] for u in updates])
-            
+
             self.history.append({
                 "round": round_num,
                 "accuracy": acc,
@@ -521,12 +521,12 @@ class SparseFLServer:
                 "sparsity": avg_sparsity,
                 "compression_ratio": avg_compression,
             })
-            
+
             if (round_num + 1) % 10 == 0:
                 print(f"Round {round_num + 1}: acc={acc:.4f}, "
                       f"sparsity={avg_sparsity:.2%}, "
                       f"compression={avg_compression:.1f}x")
-        
+
         return self.history
 
 
@@ -538,10 +538,10 @@ def run_sparsification_demo():
         top_k_ratio=0.1,
         use_error_feedback=True,
     )
-    
+
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create clients
     clients = [
         ErrorFeedbackClient(
@@ -551,15 +551,15 @@ def run_sparsification_demo():
         )
         for i in range(config.num_clients)
     ]
-    
+
     # Test set and model
     test_dataset = SparsificationDataset(500, config.input_dim, config.num_classes, 999)
     model = SparsificationModel(config)
     server = SparseFLServer(model, clients, test_dataset, config)
-    
+
     # Train
     history = server.train()
-    
+
     print(f"\nFinal accuracy: {history[-1]['accuracy']:.4f}")
     print(f"Average compression: {np.mean([h['compression_ratio'] for h in history]):.1f}x")
 

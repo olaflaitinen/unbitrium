@@ -96,13 +96,13 @@ class DeviceState(Enum):
 @dataclass
 class DeviceProfile:
     """Device characteristics."""
-    
+
     device_id: int
     battery_level: float = 1.0
     network_bandwidth: float = 1.0
     compute_capacity: float = 1.0
     available: bool = True
-    
+
     def update(self):
         """Simulate device state changes."""
         self.battery_level = max(0, self.battery_level - np.random.uniform(0, 0.05))
@@ -112,26 +112,26 @@ class DeviceProfile:
 @dataclass
 class CrossDeviceConfig:
     """Cross-device configuration."""
-    
+
     num_rounds: int = 50
     population_size: int = 1000  # Total devices
     cohort_size: int = 100       # Selected per round
     target_participants: int = 50 # Actually participate
-    
+
     input_dim: int = 32
     hidden_dim: int = 32  # Small model for mobile
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 16
     local_epochs: int = 1
-    
+
     seed: int = 42
 
 
 class MobileModel(nn.Module):
     """Lightweight model for mobile devices."""
-    
+
     def __init__(self, config: CrossDeviceConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -139,60 +139,60 @@ class MobileModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
 class DeviceDataset(Dataset):
     """On-device dataset."""
-    
+
     def __init__(self, device_id: int, n: int = 50, dim: int = 32, classes: int = 10, seed: int = 0):
         np.random.seed(seed + device_id)
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self): return len(self.y)
     def __getitem__(self, idx): return self.x[idx], self.y[idx]
 
 
 class MobileDevice:
     """Mobile device in cross-device FL."""
-    
+
     def __init__(self, device_id: int, config: CrossDeviceConfig):
         self.device_id = device_id
         self.config = config
-        
+
         self.profile = DeviceProfile(device_id)
         self.dataset = DeviceDataset(device_id, n=30 + np.random.randint(0, 50), seed=config.seed)
         self.state = DeviceState.IDLE
-    
+
     def check_eligibility(self) -> bool:
         """Check if device can participate."""
         self.profile.update()
-        
+
         return (
             self.profile.available and
             self.profile.battery_level > 0.3 and
             self.state == DeviceState.IDLE
         )
-    
+
     def train(self, model: nn.Module) -> Optional[Dict]:
         """On-device training."""
         if not self.check_eligibility():
             return None
-        
+
         self.state = DeviceState.TRAINING
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
@@ -201,15 +201,15 @@ class MobileDevice:
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         self.state = DeviceState.UPLOADING
-        
+
         # Simulate upload latency based on bandwidth
         time.sleep(0.001 / self.profile.network_bandwidth)
-        
+
         self.state = DeviceState.IDLE
         self.profile.battery_level -= 0.02
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -219,18 +219,18 @@ class MobileDevice:
 
 class DeviceSelector:
     """Select devices for training."""
-    
+
     def __init__(self, config: CrossDeviceConfig):
         self.config = config
-    
+
     def select(self, devices: List[MobileDevice]) -> List[int]:
         """Select cohort of devices."""
         # Filter eligible
         eligible = [d for d in devices if d.check_eligibility()]
-        
+
         if len(eligible) < self.config.target_participants:
             return [d.device_id for d in eligible]
-        
+
         # Score devices
         scores = []
         for d in eligible:
@@ -240,7 +240,7 @@ class DeviceSelector:
                 d.profile.network_bandwidth * 0.3
             )
             scores.append((d.device_id, score))
-        
+
         # Select top devices
         scores.sort(key=lambda x: x[1], reverse=True)
         return [s[0] for s in scores[:self.config.cohort_size]]
@@ -248,17 +248,17 @@ class DeviceSelector:
 
 class CrossDeviceServer:
     """Server for cross-device FL."""
-    
+
     def __init__(self, model: nn.Module, devices: List[MobileDevice], test_data: DeviceDataset, config: CrossDeviceConfig):
         self.model = model
         self.devices = devices
         self.test_data = test_data
         self.config = config
-        
+
         self.selector = DeviceSelector(config)
         self.device_map = {d.device_id: d for d in devices}
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -268,7 +268,7 @@ class CrossDeviceServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
@@ -279,32 +279,32 @@ class CrossDeviceServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         logger.info(f"Starting cross-device FL ({len(self.devices)} devices)")
-        
+
         for round_num in range(self.config.num_rounds):
             selected_ids = self.selector.select(self.devices)
             selected = [self.device_map[i] for i in selected_ids if i in self.device_map]
-            
+
             updates = [d.train(self.model) for d in selected[:self.config.target_participants]]
             updates = [u for u in updates if u is not None]
-            
+
             if updates:
                 self.aggregate(updates)
-            
+
             metrics = self.evaluate()
-            
+
             record = {
                 "round": round_num,
                 "participants": len(updates),
                 **metrics
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}, participants={len(updates)}")
-        
+
         return self.history
 
 
@@ -312,20 +312,20 @@ def main():
     print("=" * 60)
     print("Tutorial 104: FL Cross-Device Systems")
     print("=" * 60)
-    
+
     config = CrossDeviceConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     devices = [MobileDevice(i, config) for i in range(config.population_size)]
     test_data = DeviceDataset(device_id=9999, n=500, seed=999)
     model = MobileModel(config)
-    
+
     server = CrossDeviceServer(model, devices, test_data, config)
     history = server.train()
-    
+
     avg_participants = np.mean([h["participants"] for h in history])
-    
+
     print("\n" + "=" * 60)
     print("Cross-Device Training Complete")
     print(f"Final accuracy: {history[-1]['accuracy']:.4f}")

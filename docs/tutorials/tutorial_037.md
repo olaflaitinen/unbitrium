@@ -163,7 +163,7 @@ class TheoreticalBounds:
         term1 = (1 - eta * self.mu) ** T
         term2 = (self.sigma ** 2) / (self.mu * T * K * S)
         term3 = (K - 1) ** 2 * self.G ** 2 * eta ** 2 * self.L / self.mu
-        
+
         return term1 + eta * (term2 + term3)
 
     def fedprox_bound(
@@ -178,7 +178,7 @@ class TheoreticalBounds:
         effective_mu = self.mu + prox_mu
         term1 = (1 - eta * effective_mu) ** T
         term2 = (self.sigma ** 2) / (effective_mu * T * K * S)
-        
+
         return term1 + eta * term2
 
     def scaffold_bound(
@@ -192,7 +192,7 @@ class TheoreticalBounds:
         # SCAFFOLD removes variance drift
         term1 = (1 - eta * self.mu) ** T
         term2 = (self.sigma ** 2) / (self.mu * T * K * S)
-        
+
         return term1 + eta * term2
 
     def optimal_learning_rate(
@@ -216,28 +216,28 @@ class VarianceEstimator:
     ) -> float:
         """Estimate inter-client gradient variance."""
         all_grads = []
-        
+
         for dataset in datasets:
             loader = DataLoader(dataset, batch_size=len(dataset))
             self.model.zero_grad()
-            
+
             for features, labels in loader:
                 outputs = self.model(features)
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
-                
+
                 grad = torch.cat([
                     p.grad.flatten() for p in self.model.parameters()
                     if p.grad is not None
                 ])
                 all_grads.append(grad)
-                
+
                 self.model.zero_grad()
 
         all_grads = torch.stack(all_grads)
         mean_grad = all_grads.mean(0)
         variance = ((all_grads - mean_grad) ** 2).sum(1).mean()
-        
+
         return variance.item()
 
     def estimate_gradient_bound(
@@ -246,21 +246,21 @@ class VarianceEstimator:
     ) -> float:
         """Estimate gradient bound G."""
         max_norm = 0.0
-        
+
         for dataset in datasets:
             loader = DataLoader(dataset, batch_size=len(dataset))
             self.model.zero_grad()
-            
+
             for features, labels in loader:
                 outputs = self.model(features)
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
-                
+
                 norm = torch.cat([
                     p.grad.flatten() for p in self.model.parameters()
                     if p.grad is not None
                 ]).norm().item()
-                
+
                 max_norm = max(max_norm, norm)
                 self.model.zero_grad()
 
@@ -330,13 +330,13 @@ class TheoryServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def compute_loss(self, datasets: list[Dataset]) -> float:
@@ -344,7 +344,7 @@ class TheoryServer:
         self.model.eval()
         total_loss = 0.0
         total_samples = 0
-        
+
         for dataset in datasets:
             loader = DataLoader(dataset, batch_size=128)
             with torch.no_grad():
@@ -352,7 +352,7 @@ class TheoryServer:
                     loss = F.cross_entropy(self.model(features), labels)
                     total_loss += loss.item() * len(labels)
                     total_samples += len(labels)
-        
+
         return total_loss / total_samples
 
     def train(self, datasets: list[Dataset]) -> list[dict]:
@@ -364,7 +364,7 @@ class TheoryServer:
                 replace=False,
             )
             selected = [self.clients[i] for i in selected_idx]
-            
+
             updates = [c.train(self.model) for c in selected]
             self.aggregate(updates)
 
@@ -408,7 +408,7 @@ def verify_theory() -> dict:
     estimator = VarianceEstimator(copy.deepcopy(model))
     sigma = np.sqrt(estimator.estimate_gradient_variance(datasets))
     G = estimator.estimate_gradient_bound(datasets)
-    
+
     print(f"Estimated σ = {sigma:.4f}")
     print(f"Estimated G = {G:.4f}")
 
@@ -419,14 +419,14 @@ def verify_theory() -> dict:
         sigma=sigma,
         G=G,
     )
-    
+
     theoretical_bound = bounds.fedavg_bound(
         T=config.num_rounds,
         K=config.local_epochs,
         S=config.clients_per_round,
         eta=config.learning_rate,
     )
-    
+
     print(f"Theoretical bound: {theoretical_bound:.4f}")
 
     # Train and compare

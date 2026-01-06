@@ -233,11 +233,11 @@ class PathologicalPartitioner:
 
         # Sort indices by label
         sorted_indices = np.argsort(labels)
-        
+
         # Create shards
         shard_size = num_samples // num_shards
         shards = []
-        
+
         for i in range(num_shards):
             start = i * shard_size
             end = start + shard_size if i < num_shards - 1 else num_samples
@@ -248,7 +248,7 @@ class PathologicalPartitioner:
 
         # Assign shards to clients
         client_indices = []
-        
+
         for client_id in range(self.config.num_clients):
             client_shards = []
             for s in range(self.config.shards_per_client):
@@ -298,19 +298,19 @@ class LabelLimitPartitioner:
     ) -> list[np.ndarray]:
         """Partition with limited classes per client."""
         num_classes = len(np.unique(labels))
-        
+
         # Group indices by class
         class_indices = {
             c: np.where(labels == c)[0].tolist()
             for c in range(num_classes)
         }
-        
+
         for c in class_indices:
             np.random.shuffle(class_indices[c])
 
         # Assign classes to clients
         client_indices = [[] for _ in range(self.num_clients)]
-        
+
         for client_id in range(self.num_clients):
             # Select random classes
             selected_classes = np.random.choice(
@@ -318,10 +318,10 @@ class LabelLimitPartitioner:
                 size=min(self.classes_per_client, num_classes),
                 replace=False,
             )
-            
+
             # Allocate samples from selected classes
             samples_per_class = max(1, len(labels) // (self.num_clients * self.classes_per_client))
-            
+
             for cls in selected_classes:
                 if class_indices[cls]:
                     n_samples = min(samples_per_class, len(class_indices[cls]))
@@ -347,21 +347,21 @@ class PathologicalAnalyzer:
         # Per-client class counts
         classes_per_client = []
         class_coverage = np.zeros(self.num_classes)
-        
+
         distributions = np.zeros((len(partitions), self.num_classes))
-        
+
         for i, indices in enumerate(partitions):
             if len(indices) == 0:
                 classes_per_client.append(0)
                 continue
-                
+
             client_labels = labels[indices]
             unique_classes = np.unique(client_labels)
             classes_per_client.append(len(unique_classes))
-            
+
             for cls in unique_classes:
                 class_coverage[cls] = 1
-            
+
             for label in client_labels:
                 distributions[i, label] += 1
             distributions[i] /= len(client_labels)
@@ -429,9 +429,9 @@ def compare_pathological_methods(
     for name, partitioner in methods.items():
         partitions = partitioner.partition(labels)
         stats = analyzer.compute_statistics(partitions, labels)
-        
+
         results[name] = stats
-        
+
         print(f"{name}: classes/client={stats['avg_classes_per_client']:.1f}, "
               f"KL={stats['avg_kl_divergence']:.3f}")
 
@@ -516,7 +516,7 @@ def train_with_pathological_split(
         for client_features, client_labels in client_data:
             if len(client_labels) == 0:
                 continue
-                
+
             local_model = nn.Sequential(
                 nn.Linear(feature_dim, 64),
                 nn.ReLU(),
@@ -555,11 +555,11 @@ def train_with_pathological_split(
         global_model.eval()
         correct = 0
         total = 0
-        
+
         # Per-class accuracy
         class_correct = np.zeros(num_classes)
         class_total = np.zeros(num_classes)
-        
+
         with torch.no_grad():
             for client_features, client_labels in client_data:
                 if len(client_labels) == 0:
@@ -568,7 +568,7 @@ def train_with_pathological_split(
                 preds = outputs.argmax(1)
                 correct += (preds == torch.LongTensor(client_labels)).sum().item()
                 total += len(client_labels)
-                
+
                 for pred, true in zip(preds.numpy(), client_labels):
                     class_total[true] += 1
                     if pred == true:
@@ -576,7 +576,7 @@ def train_with_pathological_split(
 
         accuracy = correct / total if total > 0 else 0
         accuracies.append(accuracy)
-        
+
         class_accs = class_correct / np.maximum(class_total, 1)
         per_class_accuracies.append(class_accs.tolist())
 
@@ -602,7 +602,7 @@ def experiment_shard_sweep() -> dict[str, Any]:
         print(f"\n{'='*50}")
         print(f"Training with {shards} shards per client")
         print('='*50)
-        
+
         result = train_with_pathological_split(
             shards_per_client=shards,
             num_rounds=30,
@@ -613,7 +613,7 @@ def experiment_shard_sweep() -> dict[str, Any]:
     print("\n" + "="*50)
     print("Summary")
     print("="*50)
-    
+
     for name, result in results.items():
         print(f"{name}: final_acc={result['final_accuracy']:.4f}")
 

@@ -105,32 +105,32 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DebugConfig:
     """Configuration for debugging FL."""
-    
+
     num_rounds: int = 30
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     seed: int = 42
 
 
 class DebugMonitor:
     """Monitor and diagnose FL training."""
-    
+
     def __init__(self):
         self.round_metrics: List[Dict] = []
         self.client_metrics: Dict[int, List[Dict]] = {}
         self.gradient_norms: List[Dict] = []
         self.weight_stats: List[Dict] = []
         self.issues_detected: List[Dict] = []
-    
+
     def log_round(
         self,
         round_num: int,
@@ -145,10 +145,10 @@ class DebugMonitor:
             "loss": loss,
             "num_clients": len(client_updates)
         })
-        
+
         # Check for issues
         self._check_convergence()
-    
+
     def log_client(
         self,
         client_id: int,
@@ -158,12 +158,12 @@ class DebugMonitor:
         """Log client-specific metrics."""
         if client_id not in self.client_metrics:
             self.client_metrics[client_id] = []
-        
+
         self.client_metrics[client_id].append({
             "round": round_num,
             **metrics
         })
-    
+
     def log_gradients(
         self,
         round_num: int,
@@ -176,10 +176,10 @@ class DebugMonitor:
             "client_id": client_id,
             **gradient_stats
         })
-        
+
         # Check for gradient issues
         self._check_gradients(gradient_stats, client_id, round_num)
-    
+
     def log_weights(
         self,
         round_num: int,
@@ -190,17 +190,17 @@ class DebugMonitor:
             "round": round_num,
             **weight_stats
         })
-        
+
         self._check_weights(weight_stats, round_num)
-    
+
     def _check_convergence(self) -> None:
         """Check for convergence issues."""
         if len(self.round_metrics) < 5:
             return
-        
+
         recent = self.round_metrics[-5:]
         losses = [m["loss"] for m in recent]
-        
+
         # Check for divergence
         if losses[-1] > losses[0] * 2:
             self.issues_detected.append({
@@ -208,7 +208,7 @@ class DebugMonitor:
                 "round": recent[-1]["round"],
                 "message": f"Loss increased from {losses[0]:.4f} to {losses[-1]:.4f}"
             })
-        
+
         # Check for oscillation
         if all(abs(losses[i] - losses[i-1]) / losses[i-1] > 0.2 for i in range(1, len(losses))):
             self.issues_detected.append({
@@ -216,7 +216,7 @@ class DebugMonitor:
                 "round": recent[-1]["round"],
                 "message": "Loss is oscillating significantly"
             })
-    
+
     def _check_gradients(
         self,
         stats: Dict,
@@ -231,7 +231,7 @@ class DebugMonitor:
                 "client_id": client_id,
                 "message": "NaN detected in gradients"
             })
-        
+
         if stats.get("max_norm", 0) > 1000:
             self.issues_detected.append({
                 "type": "EXPLODING_GRADIENT",
@@ -239,7 +239,7 @@ class DebugMonitor:
                 "client_id": client_id,
                 "message": f"Gradient norm: {stats['max_norm']:.2f}"
             })
-    
+
     def _check_weights(self, stats: Dict, round_num: int) -> None:
         """Check for weight issues."""
         if stats.get("has_nan", False):
@@ -248,12 +248,12 @@ class DebugMonitor:
                 "round": round_num,
                 "message": "NaN detected in model weights"
             })
-    
+
     def get_summary(self) -> Dict[str, Any]:
         """Get debugging summary."""
         if not self.round_metrics:
             return {}
-        
+
         return {
             "total_rounds": len(self.round_metrics),
             "final_accuracy": self.round_metrics[-1]["accuracy"],
@@ -261,13 +261,13 @@ class DebugMonitor:
             "num_issues": len(self.issues_detected),
             "issue_types": list(set(i["type"] for i in self.issues_detected))
         }
-    
+
     def print_issues(self) -> None:
         """Print detected issues."""
         if not self.issues_detected:
             print("No issues detected!")
             return
-        
+
         print(f"\n{len(self.issues_detected)} issues detected:")
         for issue in self.issues_detected:
             print(f"  [{issue['type']}] Round {issue['round']}: {issue['message']}")
@@ -275,7 +275,7 @@ class DebugMonitor:
 
 class DebugDataset(Dataset):
     """Dataset for debugging experiments."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -285,23 +285,23 @@ class DebugDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class DebugModel(nn.Module):
     """Model with debugging hooks."""
-    
+
     def __init__(self, config: DebugConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -309,10 +309,10 @@ class DebugModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
-    
+
     def get_weight_stats(self) -> Dict[str, Any]:
         """Get statistics about weights."""
         stats = {
@@ -321,22 +321,22 @@ class DebugModel(nn.Module):
             "max_weight": 0.0,
             "min_weight": 0.0
         }
-        
+
         for param in self.parameters():
             if torch.isnan(param).any():
                 stats["has_nan"] = True
             if torch.isinf(param).any():
                 stats["has_inf"] = True
-            
+
             stats["max_weight"] = max(stats["max_weight"], param.abs().max().item())
             stats["min_weight"] = min(stats["min_weight"], param.min().item())
-        
+
         return stats
 
 
 class DebugClient:
     """Client with debugging capabilities."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -348,7 +348,7 @@ class DebugClient:
         self.dataset = dataset
         self.config = config
         self.monitor = monitor
-    
+
     def train(self, model: nn.Module, round_num: int) -> Dict[str, Any]:
         """Train with debugging."""
         local = copy.deepcopy(model)
@@ -356,25 +356,25 @@ class DebugClient:
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
         gradient_norms = []
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 output = local(x)
                 loss = F.cross_entropy(output, y)
                 loss.backward()
-                
+
                 # Collect gradient info
                 grad_norm = 0.0
                 has_nan = False
@@ -383,14 +383,14 @@ class DebugClient:
                         grad_norm += param.grad.norm().item() ** 2
                         if torch.isnan(param.grad).any():
                             has_nan = True
-                
+
                 gradient_norms.append(grad_norm ** 0.5)
-                
+
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Log gradient stats
         grad_stats = {
             "mean_norm": np.mean(gradient_norms),
@@ -398,14 +398,14 @@ class DebugClient:
             "has_nan": has_nan
         }
         self.monitor.log_gradients(round_num, self.client_id, grad_stats)
-        
+
         # Log client metrics
         client_metrics = {
             "avg_loss": total_loss / num_batches,
             "num_samples": len(self.dataset)
         }
         self.monitor.log_client(self.client_id, round_num, client_metrics)
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -416,7 +416,7 @@ class DebugClient:
 
 class DebugServer:
     """Server with debugging."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -431,28 +431,28 @@ class DebugServer:
         self.config = config
         self.monitor = monitor
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate updates."""
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Tuple[float, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x)
@@ -460,38 +460,38 @@ class DebugServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += F.cross_entropy(output, y).item()
-        
+
         return correct / total, total_loss / len(loader)
-    
+
     def train(self) -> List[Dict]:
         """Run training with debugging."""
         logger.info(f"Starting FL with debugging ({len(self.clients)} clients)")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model, round_num) for c in selected]
-            
+
             self.aggregate(updates)
-            
+
             # Log weight stats
             weight_stats = self.model.get_weight_stats()
             self.monitor.log_weights(round_num, weight_stats)
-            
+
             # Evaluate
             accuracy, loss = self.evaluate()
-            
+
             # Log round
             self.monitor.log_round(round_num, accuracy, loss, updates)
-            
+
             record = {"round": round_num, "accuracy": accuracy, "loss": loss}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={accuracy:.4f}, loss={loss:.4f}")
-        
+
         return self.history
 
 
@@ -500,33 +500,33 @@ def main():
     print("=" * 60)
     print("Tutorial 124: FL Model Debugging")
     print("=" * 60)
-    
+
     config = DebugConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     monitor = DebugMonitor()
-    
+
     clients = []
     for i in range(config.num_clients):
         dataset = DebugDataset(client_id=i, dim=config.input_dim, seed=config.seed)
         client = DebugClient(i, dataset, config, monitor)
         clients.append(client)
-    
+
     test_data = DebugDataset(client_id=999, n=300, seed=999)
     model = DebugModel(config)
-    
+
     server = DebugServer(model, clients, test_data, config, monitor)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Debugging Summary")
     print("=" * 60)
-    
+
     summary = monitor.get_summary()
     for key, value in summary.items():
         print(f"  {key}: {value}")
-    
+
     monitor.print_issues()
     print("=" * 60)
 

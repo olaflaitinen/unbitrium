@@ -101,39 +101,39 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AugConfig:
     """Augmentation configuration."""
-    
+
     num_rounds: int = 50
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Augmentation params
     enable_augmentation: bool = True
     mixup_alpha: float = 0.2
     noise_std: float = 0.1
-    
+
     seed: int = 42
 
 
 class Augmentor:
     """Data augmentation for FL."""
-    
+
     def __init__(self, config: AugConfig):
         self.config = config
         self.rng = np.random.RandomState(config.seed)
-    
+
     def add_noise(self, x: torch.Tensor) -> torch.Tensor:
         """Add Gaussian noise."""
         noise = torch.randn_like(x) * self.config.noise_std
         return x + noise
-    
+
     def mixup(
         self,
         x: torch.Tensor,
@@ -142,15 +142,15 @@ class Augmentor:
         """MixUp augmentation."""
         alpha = self.config.mixup_alpha
         lam = np.random.beta(alpha, alpha) if alpha > 0 else 1
-        
+
         batch_size = x.size(0)
         index = torch.randperm(batch_size)
-        
+
         mixed_x = lam * x + (1 - lam) * x[index]
         y_a, y_b = y, y[index]
-        
+
         return mixed_x, y_a, y_b, lam
-    
+
     def random_erasing(
         self,
         x: torch.Tensor,
@@ -159,16 +159,16 @@ class Augmentor:
         """Random erasing augmentation."""
         if self.rng.random() > probability:
             return x
-        
+
         batch, dim = x.shape
         erase_dim = max(1, int(dim * 0.2))
         start = self.rng.randint(0, dim - erase_dim)
-        
+
         x_aug = x.clone()
         x_aug[:, start:start + erase_dim] = 0
-        
+
         return x_aug
-    
+
     def augment_batch(
         self,
         x: torch.Tensor,
@@ -177,13 +177,13 @@ class Augmentor:
         """Apply all augmentations."""
         x_aug = self.add_noise(x)
         x_aug = self.random_erasing(x_aug)
-        
+
         return x_aug, y
 
 
 class AugDataset(Dataset):
     """Dataset with augmentation."""
-    
+
     def __init__(
         self,
         n: int = 200,
@@ -195,20 +195,20 @@ class AugDataset(Dataset):
         np.random.seed(seed)
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-        
+
         self.augmentor = augmentor
-    
+
     def __len__(self): return len(self.y)
-    
+
     def __getitem__(self, idx):
         x, y = self.x[idx], self.y[idx]
-        
+
         if self.augmentor:
             x = self.augmentor.add_noise(x.unsqueeze(0)).squeeze(0)
-        
+
         return x, y
 
 
@@ -221,13 +221,13 @@ class AugModel(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
 class AugClient:
     """Client with augmentation."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -238,19 +238,19 @@ class AugClient:
         self.dataset = dataset
         self.config = config
         self.augmentor = Augmentor(config) if config.enable_augmentation else None
-    
+
     def train(self, model: nn.Module) -> Dict:
         local = copy.deepcopy(model)
         optimizer = torch.optim.Adam(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss, num_batches = 0.0, 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
-                
+
                 if self.augmentor and np.random.random() < 0.5:
                     # Apply MixUp
                     x_mixed, y_a, y_b, lam = self.augmentor.mixup(x, y)
@@ -263,13 +263,13 @@ class AugClient:
                         x, y = self.augmentor.augment_batch(x, y)
                     output = local(x)
                     loss = F.cross_entropy(output, y)
-                
+
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -279,7 +279,7 @@ class AugClient:
 
 class AugServer:
     """Server for FL with augmentation."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -292,7 +292,7 @@ class AugServer:
         self.test_data = test_data
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -302,7 +302,7 @@ class AugServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
@@ -313,27 +313,27 @@ class AugServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         aug_status = "enabled" if self.config.enable_augmentation else "disabled"
         logger.info(f"Starting FL with augmentation {aug_status}")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model) for c in selected]
             self.aggregate(updates)
-            
+
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}")
-        
+
         return self.history
 
 
@@ -341,29 +341,29 @@ def main():
     print("=" * 60)
     print("Tutorial 039: FL Data Augmentation")
     print("=" * 60)
-    
+
     config = AugConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Compare with/without augmentation
     results = {}
-    
+
     for enable_aug in [False, True]:
         config.enable_augmentation = enable_aug
-        
+
         clients = [
             AugClient(i, AugDataset(n=100, seed=config.seed + i), config)
             for i in range(config.num_clients)
         ]
         test_data = AugDataset(n=300, seed=999)
         model = AugModel(config)
-        
+
         server = AugServer(model, clients, test_data, config)
         history = server.train()
-        
+
         results[f"aug_{enable_aug}"] = history[-1]["accuracy"]
-    
+
     print("\n" + "=" * 60)
     print("Augmentation Impact")
     print(f"  Without augmentation: {results['aug_False']:.4f}")

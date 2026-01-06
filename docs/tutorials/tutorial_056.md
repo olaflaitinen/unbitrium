@@ -97,28 +97,28 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MetaConfig:
     """Meta-learning configuration."""
-    
+
     num_rounds: int = 50
     num_clients: int = 20
     clients_per_round: int = 10
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     outer_lr: float = 0.01
     inner_lr: float = 0.1
     inner_steps: int = 5
     batch_size: int = 16
-    
+
     adaptation_steps: int = 3
-    
+
     seed: int = 42
 
 
 class MetaModel(nn.Module):
     """Model for meta-learning."""
-    
+
     def __init__(self, config: MetaConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -126,12 +126,12 @@ class MetaModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
-    
+
     def clone(self) -> 'MetaModel':
         return copy.deepcopy(self)
-    
+
     def adapt(
         self,
         support_x: torch.Tensor,
@@ -141,21 +141,21 @@ class MetaModel(nn.Module):
     ) -> 'MetaModel':
         """Fast adaptation on support set."""
         adapted = self.clone()
-        
+
         for _ in range(steps):
             loss = F.cross_entropy(adapted(support_x), support_y)
             grads = torch.autograd.grad(loss, adapted.parameters())
-            
+
             # Manual gradient update
             for param, grad in zip(adapted.parameters(), grads):
                 param.data = param.data - inner_lr * grad
-        
+
         return adapted
 
 
 class MetaDataset(Dataset):
     """Dataset for meta-learning tasks."""
-    
+
     def __init__(
         self,
         n: int = 200,
@@ -169,10 +169,10 @@ class MetaDataset(Dataset):
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self): return len(self.y)
     def __getitem__(self, idx): return self.x[idx], self.y[idx]
-    
+
     def get_support_query(
         self,
         k_shot: int = 5
@@ -181,7 +181,7 @@ class MetaDataset(Dataset):
         perm = torch.randperm(len(self))
         support_idx = perm[:k_shot * 10]  # 10 classes * k_shot
         query_idx = perm[k_shot * 10:]
-        
+
         return (
             self.x[support_idx], self.y[support_idx],
             self.x[query_idx], self.y[query_idx]
@@ -190,7 +190,7 @@ class MetaDataset(Dataset):
 
 class MAMLClient:
     """Client using MAML for personalization."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -200,51 +200,51 @@ class MAMLClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def compute_meta_gradient(self, model: nn.Module) -> Dict:
         """Compute MAML-style meta-gradient."""
         support_x, support_y, query_x, query_y = self.dataset.get_support_query()
-        
+
         # Inner loop: adapt on support
         adapted = model.adapt(
             support_x, support_y,
             self.config.inner_lr,
             self.config.inner_steps
         )
-        
+
         # Outer loss: evaluate on query
         query_loss = F.cross_entropy(adapted(query_x), query_y)
-        
+
         # Compute meta-gradient
         meta_grads = torch.autograd.grad(query_loss, model.parameters())
-        
+
         return {
             "grads": {k: g.cpu() for k, g in zip(model.state_dict().keys(), meta_grads)},
             "num_samples": len(self.dataset),
             "query_loss": query_loss.item()
         }
-    
+
     def evaluate_adapted(self, model: nn.Module) -> float:
         """Evaluate after adaptation."""
         support_x, support_y, query_x, query_y = self.dataset.get_support_query()
-        
+
         adapted = model.adapt(
             support_x, support_y,
             self.config.inner_lr,
             self.config.adaptation_steps
         )
-        
+
         adapted.eval()
         with torch.no_grad():
             pred = adapted(query_x).argmax(dim=1)
             accuracy = (pred == query_y).float().mean().item()
-        
+
         return accuracy
 
 
 class MAMLServer:
     """Server for MAML-based FL."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -258,46 +258,46 @@ class MAMLServer:
         self.config = config
         self.optimizer = torch.optim.Adam(model.parameters(), lr=config.outer_lr)
         self.history: List[Dict] = []
-    
+
     def aggregate_gradients(self, updates: List[Dict]) -> None:
         """Aggregate meta-gradients and update."""
         self.optimizer.zero_grad()
-        
+
         total = sum(u["num_samples"] for u in updates)
-        
+
         # Average gradients
         for param, key in zip(self.model.parameters(), self.model.state_dict().keys()):
             param.grad = sum(
                 (u["num_samples"] / total) * u["grads"][key].float()
                 for u in updates
             )
-        
+
         self.optimizer.step()
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate on test clients after adaptation."""
         accuracies = [c.evaluate_adapted(self.model) for c in self.test_clients]
         return {"adapted_accuracy": np.mean(accuracies)}
-    
+
     def train(self) -> List[Dict]:
         logger.info("Starting MAML-based FL")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.compute_meta_gradient(self.model) for c in selected]
             self.aggregate_gradients(updates)
-            
+
             metrics = self.evaluate()
-            
+
             record = {"round": round_num, **metrics}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: adapted_acc={metrics['adapted_accuracy']:.4f}")
-        
+
         return self.history
 
 
@@ -305,28 +305,28 @@ def main():
     print("=" * 60)
     print("Tutorial 056: FL Meta-Learning")
     print("=" * 60)
-    
+
     config = MetaConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Training clients with different task shifts
     clients = [
         MAMLClient(i, MetaDataset(seed=config.seed + i, task_shift=i * 0.1), config)
         for i in range(config.num_clients)
     ]
-    
+
     # Test clients with new shifts
     test_clients = [
         MAMLClient(100 + i, MetaDataset(seed=999 + i, task_shift=i * 0.2), config)
         for i in range(5)
     ]
-    
+
     model = MetaModel(config)
-    
+
     server = MAMLServer(model, clients, test_clients, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Meta-Learning FL Complete")
     print(f"Final adapted accuracy: {history[-1]['adapted_accuracy']:.4f}")

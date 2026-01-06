@@ -191,10 +191,10 @@ class TextClassifier(nn.Module):
         # x: (batch, seq_len)
         embedded = self.embedding(x)  # (batch, seq_len, embed_dim)
         output, (hidden, _) = self.lstm(embedded)
-        
+
         # Concatenate forward and backward hidden states
         hidden_cat = torch.cat([hidden[-2], hidden[-1]], dim=1)
-        
+
         return self.classifier(hidden_cat)
 
 
@@ -287,13 +287,13 @@ class FedNLPServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -303,7 +303,7 @@ class FedNLPServer:
 
             # Evaluate
             accs = [c.evaluate(self.model)["accuracy"] for c in self.clients]
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_accuracy": np.mean(accs),
@@ -325,7 +325,7 @@ def generate_synthetic_text_data(
     """Generate synthetic text classification data."""
     texts = []
     labels = []
-    
+
     for _ in range(num_samples):
         label = np.random.randint(0, 2)
         # Generate sequence with label-specific words
@@ -336,7 +336,7 @@ def generate_synthetic_text_data(
             seq[pos] = idx
         texts.append(seq)
         labels.append(label)
-    
+
     return texts, labels
 
 
@@ -346,14 +346,14 @@ def simulate_federated_nlp() -> dict:
     torch.manual_seed(42)
 
     config = FedNLPConfig()
-    
+
     # Create client datasets
     client_datasets = []
     label_words = {
         0: [10, 11, 12, 13],  # Negative sentiment words
         1: [20, 21, 22, 23],  # Positive sentiment words
     }
-    
+
     for i in range(config.num_clients):
         n = np.random.randint(200, 500)
         texts, labels = generate_synthetic_text_data(

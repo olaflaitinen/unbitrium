@@ -220,13 +220,13 @@ class FedProxClient:
         """Perform local training with proximal term."""
         # Deep copy model
         local_model = copy.deepcopy(model).to(self.device)
-        
+
         # Store global parameters for proximal term
         global_params = {
             name: param.clone().detach()
             for name, param in model.named_parameters()
         }
-        
+
         # Determine local epochs (simulate systems heterogeneity)
         if self.config.variable_local_epochs:
             local_epochs = np.random.randint(1, self.config.local_epochs + 1)
@@ -237,7 +237,7 @@ class FedProxClient:
             local_model.parameters(),
             lr=self.config.learning_rate,
         )
-        
+
         dataloader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
@@ -255,14 +255,14 @@ class FedProxClient:
                 labels = labels.to(self.device)
 
                 optimizer.zero_grad()
-                
+
                 # Task loss
                 outputs = local_model(features)
                 task_loss = F.cross_entropy(outputs, labels)
-                
+
                 # Proximal loss
                 prox_loss = self.compute_proximal_loss(local_model, global_params)
-                
+
                 # Total loss
                 loss = task_loss + prox_loss
                 loss.backward()
@@ -335,7 +335,7 @@ class FedProxServer:
     ) -> None:
         """Aggregate client updates (weighted average)."""
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         global_state = self.model.state_dict()
         new_state = {}
 

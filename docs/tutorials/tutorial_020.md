@@ -218,7 +218,7 @@ class FineTuningStrategy(PersonalizationStrategy):
     ) -> nn.Module:
         """Fine-tune global model on local data."""
         model = copy.deepcopy(global_model)
-        
+
         # Split into train/val
         n = len(local_data)
         val_size = int(n * config.val_ratio)
@@ -259,7 +259,7 @@ class InterpolationStrategy(PersonalizationStrategy):
         if self.train_local:
             # Train local model
             self.local_model = copy.deepcopy(global_model)
-            
+
             optimizer = torch.optim.SGD(
                 self.local_model.parameters(),
                 lr=config.personalization_lr,
@@ -382,7 +382,7 @@ class PersonalizedClient:
     ) -> dict[str, Any]:
         """Standard federated training round."""
         local_model = copy.deepcopy(model).to(self.device)
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -401,7 +401,7 @@ class PersonalizedClient:
             for features, labels in loader:
                 features = features.to(self.device)
                 labels = labels.to(self.device)
-                
+
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local_model(features), labels)
                 loss.backward()
@@ -440,7 +440,7 @@ class PersonalizedClient:
 
         model.eval()
         loader = DataLoader(self.dataset, batch_size=128)
-        
+
         correct = 0
         total = 0
         total_loss = 0.0
@@ -488,13 +488,13 @@ class PersonalizedFLSystem:
     def aggregate(self, updates: list[dict]) -> None:
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train_and_personalize(self) -> dict[str, Any]:
@@ -542,7 +542,7 @@ def compare_strategies(
 
     # Generate heterogeneous data
     label_dists = np.random.dirichlet([alpha] * num_classes, num_clients)
-    
+
     datasets = []
     for i in range(num_clients):
         n = np.random.randint(50, 200)
@@ -564,22 +564,22 @@ def compare_strategies(
     for name, strategy in strategies.items():
         print(f"\n{'='*40}")
         print(f"Strategy: {name}")
-        
+
         model = nn.Sequential(
             nn.Linear(feature_dim, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes),
         )
-        
+
         clients = [
             PersonalizedClient(i, ds, config, copy.deepcopy(strategy))
             for i, ds in enumerate(datasets)
         ]
-        
+
         system = PersonalizedFLSystem(model, clients, config)
         result = system.train_and_personalize()
         results[name] = result
-        
+
         print(f"Global: {result['global_accuracy']:.4f}")
         print(f"Personal: {result['personal_accuracy']:.4f}")
         print(f"Improvement: {result['improvement']:.4f}")

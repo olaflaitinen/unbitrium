@@ -230,10 +230,10 @@ class BankClient:
         """Evaluate fraud detection performance."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=256)
-        
+
         all_preds = []
         all_labels = []
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = model(features)
@@ -243,17 +243,17 @@ class BankClient:
 
         preds = np.array(all_preds)
         labels = np.array(all_labels)
-        
+
         # Compute metrics
         tp = ((preds == 1) & (labels == 1)).sum()
         fp = ((preds == 1) & (labels == 0)).sum()
         fn = ((preds == 0) & (labels == 1)).sum()
         tn = ((preds == 0) & (labels == 0)).sum()
-        
+
         precision = tp / (tp + fp + 1e-8)
         recall = tp / (tp + fn + 1e-8)
         f1 = 2 * precision * recall / (precision + recall + 1e-8)
-        
+
         return {
             "precision": precision,
             "recall": recall,
@@ -287,14 +287,14 @@ class FinanceFLServer:
         """Aggregate with simulated secure aggregation."""
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             # Simulate secure sum
             masked_sum = torch.zeros_like(updates[0]["state_dict"][key])
             for u in updates:
                 masked_sum += (u["num_samples"] / total) * u["state_dict"][key].float()
             new_state[key] = masked_sum
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -305,14 +305,14 @@ class FinanceFLServer:
             # Evaluate across all banks
             metrics = {"round": round_num}
             all_metrics = []
-            
+
             for bank in self.banks:
                 bank_metrics = bank.evaluate(self.model)
                 all_metrics.append(bank_metrics)
-            
+
             metrics["avg_f1"] = np.mean([m["f1"] for m in all_metrics])
             metrics["avg_recall"] = np.mean([m["recall"] for m in all_metrics])
-            
+
             self.history.append(metrics)
 
             if (round_num + 1) % 10 == 0:
@@ -329,7 +329,7 @@ def simulate_financial_fl() -> dict:
     torch.manual_seed(42)
 
     feature_dim = 30
-    
+
     # Create bank datasets with different fraud patterns
     bank_datasets = []
     for i in range(5):
@@ -337,7 +337,7 @@ def simulate_financial_fl() -> dict:
         # Different fraud rates per bank
         fraud_rate = 0.01 + i * 0.005
         labels = (np.random.rand(n) < fraud_rate).astype(int)
-        
+
         # Generate features
         features = np.random.randn(n, feature_dim).astype(np.float32)
         for j in range(n):
@@ -346,7 +346,7 @@ def simulate_financial_fl() -> dict:
                 features[j, 0] += 3.0  # Unusual amount
                 features[j, 1] -= 2.0  # Unusual location
                 features[j, 2] += 2.0  # Unusual time
-        
+
         amounts = np.abs(np.random.randn(n) * 1000 + 500)
         bank_datasets.append(TransactionDataset(features, labels, amounts))
 
@@ -357,7 +357,7 @@ def simulate_financial_fl() -> dict:
         BankClient(i, ds, config)
         for i, ds in enumerate(bank_datasets)
     ]
-    
+
     print("Bank fraud rates:")
     for bank in banks:
         print(f"  Bank {bank.bank_id}: {bank.fraud_rate:.4f}")

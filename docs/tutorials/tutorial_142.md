@@ -113,32 +113,32 @@ class Role(Enum):
 @dataclass
 class GovConfig:
     """Governance configuration."""
-    
+
     num_rounds: int = 30
     num_clients: int = 10
     clients_per_round: int = 5
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Governance thresholds
     min_accuracy: float = 0.7
     max_bias_score: float = 0.1
-    
+
     seed: int = 42
 
 
 class AuditTrail:
     """Audit trail for governance."""
-    
+
     def __init__(self):
         self.entries: List[Dict] = []
-    
+
     def log(
         self,
         action: str,
@@ -154,18 +154,18 @@ class AuditTrail:
             "details": details
         }
         self.entries.append(entry)
-    
+
     def get_by_version(self, version: str) -> List[Dict]:
         return [e for e in self.entries if e.get("model_version") == version]
 
 
 class ModelApproval:
     """Model approval workflow."""
-    
+
     def __init__(self, audit: AuditTrail):
         self.audit = audit
         self.approvals: Dict[str, Dict] = {}
-    
+
     def submit(
         self,
         version: str,
@@ -179,10 +179,10 @@ class ModelApproval:
             "submitted_at": datetime.utcnow().isoformat(),
             "reviews": []
         }
-        
+
         self.audit.log("SUBMIT_FOR_APPROVAL", submitter, {"metrics": metrics}, version)
         return version
-    
+
     def review(
         self,
         version: str,
@@ -192,21 +192,21 @@ class ModelApproval:
     ) -> None:
         if version not in self.approvals:
             return
-        
+
         self.approvals[version]["reviews"].append({
             "reviewer": reviewer,
             "approved": approved,
             "comments": comments,
             "timestamp": datetime.utcnow().isoformat()
         })
-        
+
         self.audit.log(
             "REVIEW_SUBMITTED",
             reviewer,
             {"approved": approved, "comments": comments},
             version
         )
-    
+
     def finalize(
         self,
         version: str,
@@ -215,40 +215,40 @@ class ModelApproval:
     ) -> ApprovalStatus:
         if version not in self.approvals:
             return ApprovalStatus.REJECTED
-        
+
         approval = self.approvals[version]
         reviews = approval["reviews"]
         metrics = approval["metrics"]
-        
+
         # Check criteria
         all_approved = all(r["approved"] for r in reviews) if reviews else False
         meets_accuracy = metrics.get("accuracy", 0) >= min_accuracy
-        
+
         if all_approved and meets_accuracy:
             status = ApprovalStatus.APPROVED
         else:
             status = ApprovalStatus.REJECTED
-        
+
         approval["status"] = status
         approval["finalized_by"] = officer
         approval["finalized_at"] = datetime.utcnow().isoformat()
-        
+
         self.audit.log(
             "APPROVAL_FINALIZED",
             officer,
             {"status": status.value},
             version
         )
-        
+
         return status
 
 
 class RiskAssessment:
     """Model risk assessment."""
-    
+
     def __init__(self, audit: AuditTrail):
         self.audit = audit
-    
+
     def assess(
         self,
         version: str,
@@ -257,7 +257,7 @@ class RiskAssessment:
     ) -> Dict[str, Any]:
         risk_level = "low"
         findings = []
-        
+
         accuracy = metrics.get("accuracy", 0)
         if accuracy < 0.6:
             risk_level = "high"
@@ -265,7 +265,7 @@ class RiskAssessment:
         elif accuracy < 0.75:
             risk_level = "medium"
             findings.append("Moderate accuracy")
-        
+
         assessment = {
             "version": version,
             "risk_level": risk_level,
@@ -273,9 +273,9 @@ class RiskAssessment:
             "metrics": metrics,
             "assessed_at": datetime.utcnow().isoformat()
         }
-        
+
         self.audit.log("RISK_ASSESSMENT", assessor, assessment, version)
-        
+
         return assessment
 
 
@@ -286,7 +286,7 @@ class GovDataset(Dataset):
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self): return len(self.y)
     def __getitem__(self, idx): return self.x[idx], self.y[idx]
 
@@ -299,7 +299,7 @@ class GovModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x): return self.net(x)
 
 
@@ -308,12 +308,12 @@ class GovClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train(self, model: nn.Module) -> Dict:
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss, num_batches = 0.0, 0
         for _ in range(self.config.local_epochs):
@@ -324,7 +324,7 @@ class GovClient:
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -334,7 +334,7 @@ class GovClient:
 
 class GovServer:
     """Server with governance."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -346,13 +346,13 @@ class GovServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.audit = AuditTrail()
         self.approval = ModelApproval(self.audit)
         self.risk = RiskAssessment(self.audit)
-        
+
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
@@ -362,7 +362,7 @@ class GovServer:
                 for u in updates
             )
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
@@ -373,31 +373,31 @@ class GovServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
         return {"accuracy": correct / total}
-    
+
     def train_with_governance(self) -> List[Dict]:
         logger.info(f"Starting governed FL")
-        
+
         for round_num in range(self.config.num_rounds):
             version = f"v{round_num + 1}"
-            
+
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model) for c in selected]
             self.aggregate(updates)
-            
+
             self.audit.log("TRAINING_ROUND", "system", {"round": round_num}, version)
-            
+
             metrics = self.evaluate()
-            
+
             # Governance workflow
             self.approval.submit(version, metrics, "ml_engineer")
             self.approval.review(version, "reviewer", metrics["accuracy"] > 0.6)
             status = self.approval.finalize(version, "governance_officer", self.config.min_accuracy)
-            
+
             self.risk.assess(version, metrics, "risk_team")
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -405,10 +405,10 @@ class GovServer:
                 "status": status.value
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}, status={status.value}")
-        
+
         return self.history
 
 
@@ -416,20 +416,20 @@ def main():
     print("=" * 60)
     print("Tutorial 142: FL Model Governance")
     print("=" * 60)
-    
+
     config = GovConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     clients = [GovClient(i, GovDataset(seed=config.seed + i), config) for i in range(config.num_clients)]
     test_data = GovDataset(seed=999)
     model = GovModel(config)
-    
+
     server = GovServer(model, clients, test_data, config)
     history = server.train_with_governance()
-    
+
     approved = sum(1 for h in history if h["status"] == "approved")
-    
+
     print("\n" + "=" * 60)
     print("Governance Summary")
     print(f"Total rounds: {len(history)}")

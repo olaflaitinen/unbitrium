@@ -142,13 +142,13 @@ class SimpleDataset(Dataset):
 def create_device_fleet(num_devices: int) -> list[DeviceCapabilities]:
     """Create heterogeneous device fleet."""
     devices = []
-    
+
     for i in range(num_devices):
         device_type = np.random.choice(
             ["smartphone", "tablet", "iot", "laptop"],
             p=[0.4, 0.2, 0.3, 0.1],
         )
-        
+
         if device_type == "smartphone":
             memory = np.random.uniform(2000, 4000)
             compute = np.random.uniform(5, 15)
@@ -165,7 +165,7 @@ def create_device_fleet(num_devices: int) -> list[DeviceCapabilities]:
             memory = np.random.uniform(8000, 16000)
             compute = np.random.uniform(50, 200)
             network = np.random.uniform(50, 500)
-        
+
         devices.append(DeviceCapabilities(
             device_id=i,
             device_type=device_type,
@@ -174,7 +174,7 @@ def create_device_fleet(num_devices: int) -> list[DeviceCapabilities]:
             battery_pct=np.random.uniform(20, 100),
             network_mbps=network,
         ))
-    
+
     return devices
 
 
@@ -188,7 +188,7 @@ class DeviceAwareTrainer:
         """Compute batch size based on memory."""
         # Estimate: 4 bytes per param, 3x for gradients
         base = self.config.batch_size_base
-        
+
         if device.memory_mb < 512:
             return max(4, base // 4)
         elif device.memory_mb < 2048:
@@ -199,7 +199,7 @@ class DeviceAwareTrainer:
     def get_local_epochs(self, device: DeviceCapabilities) -> int:
         """Compute epochs based on compute power."""
         base = self.config.local_epochs_base
-        
+
         if device.compute_power < 2:
             return max(1, base // 3)
         elif device.compute_power < 10:
@@ -333,19 +333,19 @@ class EdgeFLServer:
         """Aggregate updates."""
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
         for round_num in range(self.config.num_rounds):
             available = self.select_clients()
-            
+
             updates = []
             for client in available:
                 update = client.train(self.model)
@@ -377,7 +377,7 @@ def run_edge_experiment() -> dict:
 
     # Create devices and datasets
     devices = create_device_fleet(30)
-    
+
     datasets = []
     for _ in range(30):
         n = np.random.randint(50, 150)

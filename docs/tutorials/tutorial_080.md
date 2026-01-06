@@ -169,40 +169,40 @@ class HybridMode(Enum):
 @dataclass
 class HybridConfig:
     """Configuration for hybrid FL."""
-    
+
     # General
     num_rounds: int = 30
     seed: int = 42
-    
+
     # Hierarchical
     num_edge_servers: int = 4
     devices_per_edge: int = 5
-    
+
     # Horizontal
     num_horizontal_clients: int = 10
     samples_per_client: int = 100
-    
+
     # Vertical
     num_vertical_parties: int = 2
     features_per_party: int = 16
-    
+
     # Training
     local_epochs: int = 2
     batch_size: int = 32
     learning_rate: float = 0.01
-    
+
     # Model
     total_features: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     # Split learning
     split_layer: int = 1
 
 
 class HorizontalDataset(Dataset):
     """Dataset for horizontal FL (same features, different samples)."""
-    
+
     def __init__(
         self,
         features: np.ndarray,
@@ -212,17 +212,17 @@ class HorizontalDataset(Dataset):
         self.features = torch.FloatTensor(features)
         self.labels = torch.LongTensor(labels)
         self.client_id = client_id
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.features[idx], self.labels[idx]
 
 
 class VerticalDataset:
     """Dataset for vertical FL (same samples, different features)."""
-    
+
     def __init__(
         self,
         features_a: np.ndarray,
@@ -234,23 +234,23 @@ class VerticalDataset:
         self.features_b = torch.FloatTensor(features_b)
         self.labels = torch.LongTensor(labels)
         self.sample_ids = sample_ids
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def get_party_a_data(self, indices: List[int]) -> torch.Tensor:
         return self.features_a[indices]
-    
+
     def get_party_b_data(self, indices: List[int]) -> torch.Tensor:
         return self.features_b[indices]
-    
+
     def get_labels(self, indices: List[int]) -> torch.Tensor:
         return self.labels[indices]
 
 
 class BottomModel(nn.Module):
     """Bottom model for vertical/split FL."""
-    
+
     def __init__(self, input_dim: int, output_dim: int):
         super().__init__()
         self.network = nn.Sequential(
@@ -258,14 +258,14 @@ class BottomModel(nn.Module):
             nn.ReLU(),
             nn.Linear(64, output_dim),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
 
 
 class TopModel(nn.Module):
     """Top model for vertical/split FL."""
-    
+
     def __init__(self, input_dim: int, num_classes: int):
         super().__init__()
         self.network = nn.Sequential(
@@ -273,14 +273,14 @@ class TopModel(nn.Module):
             nn.ReLU(),
             nn.Linear(32, num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
 
 
 class FullModel(nn.Module):
     """Full model for horizontal FL."""
-    
+
     def __init__(self, input_dim: int, hidden_dim: int, num_classes: int):
         super().__init__()
         self.network = nn.Sequential(
@@ -290,7 +290,7 @@ class FullModel(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim // 2, num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
 ```
@@ -300,7 +300,7 @@ class FullModel(nn.Module):
 ```python
 class EdgeDevice:
     """Edge device in hierarchical FL."""
-    
+
     def __init__(
         self,
         device_id: int,
@@ -312,11 +312,11 @@ class EdgeDevice:
         self.edge_server_id = edge_server_id
         self.dataset = dataset
         self.config = config
-    
+
     @property
     def num_samples(self) -> int:
         return len(self.dataset)
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Local training on device."""
         local_model = copy.deepcopy(model)
@@ -329,11 +329,11 @@ class EdgeDevice:
             batch_size=self.config.batch_size,
             shuffle=True,
         )
-        
+
         local_model.train()
         total_loss = 0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for features, labels in loader:
                 optimizer.zero_grad()
@@ -343,7 +343,7 @@ class EdgeDevice:
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local_model.state_dict().items()},
             "num_samples": self.num_samples,
@@ -354,7 +354,7 @@ class EdgeDevice:
 
 class EdgeServer:
     """Edge server for hierarchical aggregation."""
-    
+
     def __init__(
         self,
         server_id: int,
@@ -364,27 +364,27 @@ class EdgeServer:
         self.server_id = server_id
         self.devices = devices
         self.config = config
-    
+
     @property
     def total_samples(self) -> int:
         return sum(d.num_samples for d in self.devices)
-    
+
     def collect_and_aggregate(self, model: nn.Module) -> Dict[str, Any]:
         """Collect updates from devices and perform edge aggregation."""
         updates = [device.train(model) for device in self.devices]
-        
+
         if not updates:
             return None
-        
+
         total = sum(u["num_samples"] for u in updates)
         aggregated_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             aggregated_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         return {
             "state_dict": aggregated_state,
             "num_samples": total,
@@ -395,7 +395,7 @@ class EdgeServer:
 
 class CloudAggregator:
     """Cloud-level aggregator for hierarchical FL."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -406,24 +406,24 @@ class CloudAggregator:
         self.edge_servers = edge_servers
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate_edge_updates(self, updates: List[Dict]) -> None:
         """Aggregate updates from edge servers."""
         valid_updates = [u for u in updates if u is not None]
         if not valid_updates:
             return
-        
+
         total = sum(u["num_samples"] for u in valid_updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in valid_updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def train(self) -> List[Dict]:
         """Run hierarchical training."""
         for round_num in range(self.config.num_rounds):
@@ -432,23 +432,23 @@ class CloudAggregator:
                 edge.collect_and_aggregate(self.model)
                 for edge in self.edge_servers
             ]
-            
+
             # Cloud aggregation
             self.aggregate_edge_updates(edge_updates)
-            
+
             total_devices = sum(
                 u["num_devices"] for u in edge_updates if u
             )
-            
+
             self.history.append({
                 "round": round_num,
                 "edge_servers": len([u for u in edge_updates if u]),
                 "total_devices": total_devices,
             })
-            
+
             if (round_num + 1) % 5 == 0:
                 print(f"Round {round_num + 1}: {total_devices} devices")
-        
+
         return self.history
 ```
 
@@ -457,7 +457,7 @@ class CloudAggregator:
 ```python
 class VerticalFLParty:
     """Party in vertical FL."""
-    
+
     def __init__(
         self,
         party_id: int,
@@ -473,29 +473,29 @@ class VerticalFLParty:
             bottom_model.parameters(),
             lr=config.learning_rate,
         )
-    
+
     def compute_embeddings(self, indices: List[int]) -> torch.Tensor:
         """Compute embeddings for given sample indices."""
         self.bottom_model.train()
         batch_features = self.features[indices]
         return self.bottom_model(batch_features)
-    
+
     def backward(self, gradients: torch.Tensor) -> None:
         """Backward pass with gradients from top model."""
         self.optimizer.zero_grad()
         # Gradients are computed through autograd
         self.optimizer.step()
-    
+
     def get_state(self) -> Dict[str, torch.Tensor]:
         return {k: v.cpu() for k, v in self.bottom_model.state_dict().items()}
-    
+
     def set_state(self, state: Dict[str, torch.Tensor]) -> None:
         self.bottom_model.load_state_dict(state)
 
 
 class VerticalFLCoordinator:
     """Coordinator for vertical FL."""
-    
+
     def __init__(
         self,
         parties: List[VerticalFLParty],
@@ -511,7 +511,7 @@ class VerticalFLCoordinator:
             top_model.parameters(),
             lr=config.learning_rate,
         )
-    
+
     def train_batch(self, indices: List[int]) -> float:
         """Train on a batch of samples."""
         # Forward pass through all parties
@@ -519,53 +519,53 @@ class VerticalFLCoordinator:
         for party in self.parties:
             emb = party.compute_embeddings(indices)
             embeddings.append(emb)
-        
+
         # Concatenate embeddings
         combined = torch.cat(embeddings, dim=1)
-        
+
         # Top model forward + loss
         self.top_optimizer.zero_grad()
         outputs = self.top_model(combined)
         loss = F.cross_entropy(outputs, self.labels[indices])
-        
+
         # Backward
         loss.backward()
         self.top_optimizer.step()
-        
+
         return loss.item()
-    
+
     def train_epoch(self) -> float:
         """Train for one epoch."""
         n = len(self.labels)
         indices = list(range(n))
         np.random.shuffle(indices)
-        
+
         total_loss = 0
         num_batches = 0
-        
+
         for i in range(0, n, self.config.batch_size):
             batch_indices = indices[i:i + self.config.batch_size]
             loss = self.train_batch(batch_indices)
             total_loss += loss
             num_batches += 1
-        
+
         return total_loss / num_batches
 
 
 class HybridFLSystem:
     """Complete hybrid FL system combining horizontal and vertical."""
-    
+
     def __init__(self, config: HybridConfig):
         self.config = config
         torch.manual_seed(config.seed)
         np.random.seed(config.seed)
-    
+
     def create_hierarchical_data(
         self,
     ) -> Tuple[List[EdgeServer], Dataset]:
         """Create data for hierarchical FL."""
         edge_servers = []
-        
+
         for edge_id in range(self.config.num_edge_servers):
             devices = []
             for dev_id in range(self.config.devices_per_edge):
@@ -573,20 +573,20 @@ class HybridFLSystem:
                 n = np.random.randint(50, 150)
                 x = np.random.randn(n, self.config.total_features).astype(np.float32)
                 y = np.random.randint(0, self.config.num_classes, n)
-                
+
                 dataset = HorizontalDataset(x, y, global_id)
                 device = EdgeDevice(global_id, edge_id, dataset, self.config)
                 devices.append(device)
-            
+
             edge_servers.append(EdgeServer(edge_id, devices, self.config))
-        
+
         # Test dataset
         test_x = np.random.randn(500, self.config.total_features).astype(np.float32)
         test_y = np.random.randint(0, self.config.num_classes, 500)
         test_dataset = HorizontalDataset(test_x, test_y)
-        
+
         return edge_servers, test_dataset
-    
+
     def run_hierarchical(self) -> List[Dict]:
         """Run hierarchical FL."""
         edge_servers, _ = self.create_hierarchical_data()
@@ -595,17 +595,17 @@ class HybridFLSystem:
             self.config.hidden_dim,
             self.config.num_classes,
         )
-        
+
         cloud = CloudAggregator(model, edge_servers, self.config)
         return cloud.train()
-    
+
     def run_vertical(self) -> List[Dict]:
         """Run vertical FL."""
         n = 1000
         features_a = torch.randn(n, self.config.features_per_party)
         features_b = torch.randn(n, self.config.features_per_party)
         labels = torch.randint(0, self.config.num_classes, (n,))
-        
+
         party_a = VerticalFLParty(
             0, features_a,
             BottomModel(self.config.features_per_party, 32),
@@ -616,19 +616,19 @@ class HybridFLSystem:
             BottomModel(self.config.features_per_party, 32),
             self.config,
         )
-        
+
         top_model = TopModel(64, self.config.num_classes)
         coordinator = VerticalFLCoordinator(
             [party_a, party_b], top_model, labels, self.config
         )
-        
+
         history = []
         for round_num in range(self.config.num_rounds):
             loss = coordinator.train_epoch()
             history.append({"round": round_num, "loss": loss})
             if (round_num + 1) % 5 == 0:
                 print(f"Round {round_num + 1}: loss={loss:.4f}")
-        
+
         return history
 
 
@@ -636,10 +636,10 @@ def run_hybrid_demo():
     """Demonstrate hybrid FL architectures."""
     config = HybridConfig(num_rounds=15)
     system = HybridFLSystem(config)
-    
+
     print("=== Hierarchical FL ===")
     system.run_hierarchical()
-    
+
     print("\n=== Vertical FL ===")
     system.run_vertical()
 

@@ -14,8 +14,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from unbitrium.aggregators import FedAvg, FedSim, PFedSim
-from unbitrium.partitioning import DirichletPartitioner
 from unbitrium.metrics.heterogeneity import compute_label_entropy
+from unbitrium.partitioning import DirichletPartitioner
 
 
 class MLP(nn.Module):
@@ -94,7 +94,9 @@ def train_round(
         dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
         # Local model
-        local_model = MLP(input_dim=X.shape[1], hidden_dim=64, num_classes=y.max().item() + 1)
+        local_model = MLP(
+            input_dim=X.shape[1], hidden_dim=64, num_classes=y.max().item() + 1
+        )
         local_model.load_state_dict(global_model.state_dict())
 
         # Train
@@ -109,7 +111,9 @@ def train_round(
                 loss.backward()
                 optimizer.step()
 
-        client_updates.append({k: v.clone() for k, v in local_model.state_dict().items()})
+        client_updates.append(
+            {k: v.clone() for k, v in local_model.state_dict().items()}
+        )
         client_weights.append(len(indices))
 
     # Aggregate

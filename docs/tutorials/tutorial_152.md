@@ -123,7 +123,7 @@ class MistakeConfig:
 
 class MistakeDataset(Dataset):
     """Standard dataset for demonstrations."""
-    
+
     def __init__(
         self,
         n: int = 100,
@@ -134,21 +134,21 @@ class MistakeDataset(Dataset):
         np.random.seed(seed)
         self.x = torch.randn(n, dim)
         self.y = torch.randint(0, classes, (n,))
-        
+
         # Add class-specific patterns
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class SimpleModel(nn.Module):
     """Simple model for demonstrations."""
-    
+
     def __init__(self, config: MistakeConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -158,7 +158,7 @@ class SimpleModel(nn.Module):
             nn.ReLU(),
             nn.Linear(32, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
@@ -169,17 +169,17 @@ class SimpleModel(nn.Module):
 
 class WrongAggregationClient:
     """Client with wrong aggregation approach."""
-    
+
     def __init__(self, client_id: int, dataset: MistakeDataset, config: MistakeConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train(self, model: nn.Module) -> Dict:
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -187,7 +187,7 @@ class WrongAggregationClient:
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
@@ -197,39 +197,39 @@ class WrongAggregationClient:
 def wrong_aggregation(updates: List[Dict]) -> Dict[str, torch.Tensor]:
     """
     MISTAKE: Simple averaging without sample weighting.
-    
+
     This ignores the number of samples each client has,
     treating all clients equally regardless of data size.
     """
     new_state = {}
     n = len(updates)
-    
+
     for key in updates[0]["state_dict"]:
         # WRONG: Equal weights for all clients
         new_state[key] = sum(
             u["state_dict"][key].float() for u in updates
         ) / n
-    
+
     return new_state
 
 
 def correct_aggregation(updates: List[Dict]) -> Dict[str, torch.Tensor]:
     """
     CORRECT: Weighted averaging by sample count.
-    
+
     This properly weights each client's contribution
     based on their dataset size.
     """
     total_samples = sum(u["num_samples"] for u in updates)
     new_state = {}
-    
+
     for key in updates[0]["state_dict"]:
         # CORRECT: Weight by number of samples
         new_state[key] = sum(
             (u["num_samples"] / total_samples) * u["state_dict"][key].float()
             for u in updates
         )
-    
+
     return new_state
 
 
@@ -239,23 +239,23 @@ def correct_aggregation(updates: List[Dict]) -> Dict[str, torch.Tensor]:
 
 class NoCloneClient:
     """Client that modifies global model directly (WRONG)."""
-    
+
     def __init__(self, client_id: int, dataset: MistakeDataset, config: MistakeConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train_wrong(self, model: nn.Module) -> Dict:
         """
         MISTAKE: Training directly on the global model.
-        
+
         This modifies the shared model, causing interference
         between clients during parallel training.
         """
         # WRONG: No copy, modifying global model directly
         optimizer = torch.optim.SGD(model.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         model.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -263,16 +263,16 @@ class NoCloneClient:
                 loss = F.cross_entropy(model(x), y)
                 loss.backward()
                 optimizer.step()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
             "num_samples": len(self.dataset)
         }
-    
+
     def train_correct(self, model: nn.Module) -> Dict:
         """
         CORRECT: Deep copy before training.
-        
+
         Creates an independent copy to train locally
         without affecting other clients.
         """
@@ -280,7 +280,7 @@ class NoCloneClient:
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -288,7 +288,7 @@ class NoCloneClient:
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
@@ -318,33 +318,33 @@ def create_non_iid_data(
 ) -> List[MistakeDataset]:
     """
     Create non-IID data with label skew.
-    
+
     Each client has data biased towards specific classes.
     """
     datasets = []
     classes_per_client = config.num_classes // num_clients
-    
+
     for i in range(num_clients):
         np.random.seed(config.seed + i)
         x = torch.randn(samples_per_client, config.input_dim)
-        
+
         # Assign labels biased to specific classes
         main_classes = [
             (i * classes_per_client + j) % config.num_classes
             for j in range(classes_per_client)
         ]
-        
+
         y = torch.tensor([
             np.random.choice(main_classes) if np.random.random() < 0.8
             else np.random.randint(0, config.num_classes)
             for _ in range(samples_per_client)
         ])
-        
+
         # Create dataset
         ds = MistakeDataset(n=samples_per_client, seed=i)
         ds.y = y
         datasets.append(ds)
-    
+
     return datasets
 
 
@@ -354,23 +354,23 @@ def create_non_iid_data(
 
 class NoClippingClient:
     """Client without gradient clipping (can cause issues)."""
-    
+
     def __init__(self, client_id: int, dataset: MistakeDataset, config: MistakeConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train_no_clipping(self, model: nn.Module) -> Dict:
         """
         MISTAKE: No gradient clipping.
-        
+
         Can lead to exploding gradients, especially
         with heterogeneous data.
         """
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -379,22 +379,22 @@ class NoClippingClient:
                 loss.backward()
                 # WRONG: No gradient clipping
                 optimizer.step()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
         }
-    
+
     def train_with_clipping(self, model: nn.Module, max_norm: float = 1.0) -> Dict:
         """
         CORRECT: Apply gradient clipping.
-        
+
         Prevents exploding gradients and improves stability.
         """
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -404,7 +404,7 @@ class NoClippingClient:
                 # CORRECT: Clip gradients
                 torch.nn.utils.clip_grad_norm_(local.parameters(), max_norm)
                 optimizer.step()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
@@ -417,23 +417,23 @@ class NoClippingClient:
 
 class MemoryLeakClient:
     """Client with potential memory leak."""
-    
+
     def __init__(self, client_id: int, dataset: MistakeDataset, config: MistakeConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
         self.history: List[torch.Tensor] = []  # Potential leak source
-    
+
     def train_with_leak(self, model: nn.Module) -> Dict:
         """
         MISTAKE: Storing tensors without detaching.
-        
+
         Keeps computation graph in memory, causing leaks.
         """
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         for _ in range(self.config.local_epochs):
             for x, y in loader:
@@ -442,25 +442,25 @@ class MemoryLeakClient:
                 loss = F.cross_entropy(output, y)
                 loss.backward()
                 optimizer.step()
-                
+
                 # WRONG: Storing tensor with grad history
                 self.history.append(loss)
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset)
         }
-    
+
     def train_no_leak(self, model: nn.Module) -> Dict:
         """
         CORRECT: Detach tensors before storing.
-        
+
         Frees computation graph from memory.
         """
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         losses = []
         for _ in range(self.config.local_epochs):
@@ -470,10 +470,10 @@ class MemoryLeakClient:
                 loss = F.cross_entropy(output, y)
                 loss.backward()
                 optimizer.step()
-                
+
                 # CORRECT: Detach and convert to Python float
                 losses.append(loss.item())
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -488,7 +488,7 @@ class MemoryLeakClient:
 def evaluate_wrong(model: nn.Module, test_data: MistakeDataset) -> float:
     """
     MISTAKE: Not setting model to eval mode.
-    
+
     Dropout and BatchNorm behave differently in training mode,
     leading to inconsistent evaluation results.
     """
@@ -496,21 +496,21 @@ def evaluate_wrong(model: nn.Module, test_data: MistakeDataset) -> float:
     loader = DataLoader(test_data, batch_size=64)
     correct = 0
     total = 0
-    
+
     with torch.no_grad():
         for x, y in loader:
             output = model(x)
             pred = output.argmax(dim=1)
             correct += (pred == y).sum().item()
             total += len(y)
-    
+
     return correct / total
 
 
 def evaluate_correct(model: nn.Module, test_data: MistakeDataset) -> float:
     """
     CORRECT: Set model to eval mode before evaluation.
-    
+
     Ensures consistent behavior of Dropout and BatchNorm.
     """
     # CORRECT: Set to eval mode
@@ -518,14 +518,14 @@ def evaluate_correct(model: nn.Module, test_data: MistakeDataset) -> float:
     loader = DataLoader(test_data, batch_size=64)
     correct = 0
     total = 0
-    
+
     with torch.no_grad():
         for x, y in loader:
             output = model(x)
             pred = output.argmax(dim=1)
             correct += (pred == y).sum().item()
             total += len(y)
-    
+
     return correct / total
 
 
@@ -535,7 +535,7 @@ def evaluate_correct(model: nn.Module, test_data: MistakeDataset) -> float:
 
 class CorrectClient:
     """Client with all correct implementations."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -545,43 +545,43 @@ class CorrectClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-    
+
     def train(self, model: nn.Module) -> Dict:
         """Correct training implementation."""
         # 1. Deep copy model
         local = copy.deepcopy(model)
-        
+
         # 2. Use appropriate optimizer
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate,
             momentum=0.9
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         losses = []
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 output = local(x)
                 loss = F.cross_entropy(output, y)
                 loss.backward()
-                
+
                 # 3. Clip gradients
                 torch.nn.utils.clip_grad_norm_(local.parameters(), 1.0)
-                
+
                 optimizer.step()
-                
+
                 # 4. Properly store loss
                 losses.append(loss.item())
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -591,7 +591,7 @@ class CorrectClient:
 
 class CorrectServer:
     """Server with all correct implementations."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -603,63 +603,63 @@ class CorrectServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Correct weighted aggregation."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> float:
         """Correct evaluation."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
         correct = 0
         total = 0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x)
                 pred = output.argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         return correct / total
-    
+
     def train(self) -> List[Dict]:
         """Run correct federated training."""
         history = []
-        
+
         for round_num in range(self.config.num_rounds):
             # Collect updates
             updates = [c.train(self.model) for c in self.clients]
-            
+
             # Aggregate with proper weighting
             self.aggregate(updates)
-            
+
             # Evaluate with model in eval mode
             accuracy = self.evaluate()
             avg_loss = np.mean([u["avg_loss"] for u in updates])
-            
+
             history.append({
                 "round": round_num,
                 "accuracy": accuracy,
                 "avg_loss": avg_loss
             })
-            
+
             if (round_num + 1) % 10 == 0:
                 print(f"Round {round_num + 1}: acc={accuracy:.4f}, loss={avg_loss:.4f}")
-        
+
         return history
 
 
@@ -668,26 +668,26 @@ def main():
     print("=" * 60)
     print("Tutorial 152: FL Common Mistakes")
     print("=" * 60)
-    
+
     config = MistakeConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create data and clients
     datasets = [MistakeDataset(seed=i) for i in range(config.num_clients)]
     clients = [CorrectClient(i, d, config) for i, d in enumerate(datasets)]
     test_data = MistakeDataset(n=200, seed=999)
-    
+
     # Create model
     model = SimpleModel(config)
-    
+
     # Train with correct implementation
     server = CorrectServer(model, clients, test_data, config)
-    
+
     print("\nRunning correct FL implementation...")
     print("-" * 40)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Training Complete")
     print(f"Final Accuracy: {history[-1]['accuracy']:.4f}")

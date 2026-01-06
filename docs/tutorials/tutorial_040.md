@@ -208,13 +208,13 @@ class QFedAvgClient:
         loader = DataLoader(self.dataset, batch_size=128)
         total_loss = 0.0
         total = 0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 loss = F.cross_entropy(model(features), labels, reduction='sum')
                 total_loss += loss.item()
                 total += len(labels)
-        
+
         return total_loss / total
 
     def compute_accuracy(self, model: nn.Module) -> float:
@@ -223,13 +223,13 @@ class QFedAvgClient:
         loader = DataLoader(self.dataset, batch_size=128)
         correct = 0
         total = 0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 preds = model(features).argmax(1)
                 correct += (preds == labels).sum().item()
                 total += len(labels)
-        
+
         return correct / total
 
     def train(
@@ -240,7 +240,7 @@ class QFedAvgClient:
         """Train and return update with fairness-aware weight."""
         # Store initial loss for q-FedAvg weighting
         initial_loss = self.compute_loss(model)
-        
+
         local_model = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local_model.parameters(),
@@ -272,7 +272,7 @@ class QFedAvgClient:
             delta = {}
             for name, param in local_model.named_parameters():
                 delta[name] = param.data - model.state_dict()[name]
-            
+
             return {
                 "delta": delta,
                 "num_samples": self.num_samples,
@@ -321,7 +321,7 @@ class QFedAvgServer:
         else:
             # q-FedAvg: weight by loss^q
             weights = [u["qffl_weight"] * u["num_samples"] for u in updates]
-        
+
         total_weight = sum(weights)
         weights = [w / total_weight for w in weights]
 
@@ -331,7 +331,7 @@ class QFedAvgServer:
                 w * u["state_dict"][key].float()
                 for w, u in zip(weights, updates)
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -385,7 +385,7 @@ def compare_fairness_methods() -> dict:
         clients = [QFedAvgClient(i, ds, config) for i, ds in enumerate(datasets)]
         server = QFedAvgServer(model, clients, config)
         history = server.train()
-        
+
         results[f"q={q}"] = {
             "avg_accuracy": history[-1]["avg_accuracy"],
             "worst_accuracy": history[-1]["worst_accuracy"],
@@ -397,7 +397,7 @@ def compare_fairness_methods() -> dict:
 
 if __name__ == "__main__":
     results = compare_fairness_methods()
-    
+
     print("\n" + "=" * 50)
     print("Fairness Comparison:")
     for q, metrics in results.items():

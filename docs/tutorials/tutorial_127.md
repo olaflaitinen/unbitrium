@@ -124,33 +124,33 @@ class DefenseType(Enum):
 @dataclass
 class RobustConfig:
     """Configuration for robust FL."""
-    
+
     num_rounds: int = 50
     num_clients: int = 20
     clients_per_round: int = 15
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Attack parameters
     byzantine_ratio: float = 0.2
     attack_type: AttackType = AttackType.SIGN_FLIP
-    
+
     # Defense parameters
     defense_type: DefenseType = DefenseType.KRUM
     trim_ratio: float = 0.2
-    
+
     seed: int = 42
 
 
 class RobustDataset(Dataset):
     """Dataset for robustness experiments."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -160,23 +160,23 @@ class RobustDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class RobustModel(nn.Module):
     """Model for robustness experiments."""
-    
+
     def __init__(self, config: RobustConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -184,17 +184,17 @@ class RobustModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
 
 class RobustAggregator:
     """Robust aggregation methods."""
-    
+
     def __init__(self, config: RobustConfig):
         self.config = config
-    
+
     def aggregate(
         self,
         updates: List[Dict],
@@ -211,50 +211,50 @@ class RobustAggregator:
             return self._krum(updates, multi=False)
         elif defense == DefenseType.MULTI_KRUM:
             return self._krum(updates, multi=True)
-        
+
         return self._fedavg(updates)
-    
+
     def _fedavg(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Standard FedAvg."""
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         return new_state
-    
+
     def _median(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Coordinate-wise median."""
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             stacked = torch.stack([u["state_dict"][key] for u in updates])
             new_state[key] = torch.median(stacked, dim=0).values
-        
+
         return new_state
-    
+
     def _trimmed_mean(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Trimmed mean aggregation."""
         new_state = {}
         k = int(len(updates) * self.config.trim_ratio)
-        
+
         for key in updates[0]["state_dict"]:
             stacked = torch.stack([u["state_dict"][key] for u in updates])
             sorted_vals, _ = torch.sort(stacked, dim=0)
-            
+
             if k > 0 and 2*k < len(updates):
                 trimmed = sorted_vals[k:-k]
             else:
                 trimmed = sorted_vals
-            
+
             new_state[key] = trimmed.mean(dim=0)
-        
+
         return new_state
-    
+
     def _krum(
         self,
         updates: List[Dict],
@@ -263,13 +263,13 @@ class RobustAggregator:
         """Krum or Multi-Krum aggregation."""
         n = len(updates)
         f = int(n * self.config.byzantine_ratio)
-        
+
         # Flatten updates
         flattened = []
         for u in updates:
             flat = torch.cat([v.flatten() for v in u["state_dict"].values()])
             flattened.append(flat)
-        
+
         # Compute pairwise distances
         distances = torch.zeros(n, n)
         for i in range(n):
@@ -277,14 +277,14 @@ class RobustAggregator:
                 dist = torch.norm(flattened[i] - flattened[j])
                 distances[i, j] = dist
                 distances[j, i] = dist
-        
+
         # Compute scores (sum of closest n-f-2 distances)
         scores = []
         for i in range(n):
             sorted_dists = torch.sort(distances[i]).values
             score = sorted_dists[:n-f-1].sum()
             scores.append(score.item())
-        
+
         if multi:
             # Multi-Krum: average of n-f best
             sorted_indices = np.argsort(scores)
@@ -299,7 +299,7 @@ class RobustAggregator:
 
 class ByzantineClient:
     """Client with possible Byzantine behavior."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -311,14 +311,14 @@ class ByzantineClient:
         self.dataset = dataset
         self.config = config
         self.is_byzantine = is_byzantine
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train or attack."""
         if self.is_byzantine:
             return self._attack(model)
-        
+
         return self._honest_train(model)
-    
+
     def _honest_train(self, model: nn.Module) -> Dict[str, Any]:
         """Honest training."""
         local = copy.deepcopy(model)
@@ -326,27 +326,27 @@ class ByzantineClient:
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -354,39 +354,39 @@ class ByzantineClient:
             "client_id": self.client_id,
             "is_byzantine": False
         }
-    
+
     def _attack(self, model: nn.Module) -> Dict[str, Any]:
         """Generate attack update."""
         attack = self.config.attack_type
-        
+
         # Get honest update first
         honest = self._honest_train(model)
         state_dict = honest["state_dict"]
-        
+
         if attack == AttackType.RANDOM:
             # Random noise
             for key in state_dict:
                 state_dict[key] = torch.randn_like(state_dict[key])
-        
+
         elif attack == AttackType.SIGN_FLIP:
             # Flip signs and scale up
             for key in state_dict:
                 state_dict[key] = -state_dict[key] * 5
-        
+
         elif attack == AttackType.SCALE:
             # Scale up updates
             for key in state_dict:
                 state_dict[key] = state_dict[key] * 100
-        
+
         honest["state_dict"] = state_dict
         honest["is_byzantine"] = True
-        
+
         return honest
 
 
 class RobustServer:
     """Server with robust aggregation."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -398,53 +398,53 @@ class RobustServer:
         self.clients = clients
         self.test_data = test_data
         self.config = config
-        
+
         self.aggregator = RobustAggregator(config)
         self.history: List[Dict] = []
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in loader:
                 pred = self.model(x).argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         """Run robust FL training."""
         logger.info(
             f"Starting robust FL: {self.config.defense_type.value} "
             f"vs {self.config.attack_type.value}"
         )
-        
+
         for round_num in range(self.config.num_rounds):
             # Select clients
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             # Collect updates
             updates = [c.train(self.model) for c in selected]
-            
+
             # Robust aggregation
             new_state = self.aggregator.aggregate(
                 updates,
                 self.config.defense_type
             )
             self.model.load_state_dict(new_state)
-            
+
             # Count Byzantine
             num_byzantine = sum(1 for u in updates if u.get("is_byzantine", False))
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -452,13 +452,13 @@ class RobustServer:
                 "num_clients": len(updates)
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}, "
                     f"byzantine={num_byzantine}/{len(updates)}"
                 )
-        
+
         return self.history
 
 
@@ -467,25 +467,25 @@ def main():
     print("=" * 60)
     print("Tutorial 127: FL Robustness")
     print("=" * 60)
-    
+
     config = RobustConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create clients (some Byzantine)
     clients = []
     num_byzantine = int(config.num_clients * config.byzantine_ratio)
-    
+
     for i in range(config.num_clients):
         is_byzantine = i < num_byzantine
         dataset = RobustDataset(client_id=i, dim=config.input_dim, seed=config.seed)
         client = ByzantineClient(i, dataset, config, is_byzantine)
         clients.append(client)
-    
+
     np.random.shuffle(clients)
-    
+
     test_data = RobustDataset(client_id=999, n=300, seed=999)
-    
+
     # Compare defenses
     results = {}
     for defense in DefenseType:
@@ -494,7 +494,7 @@ def main():
         server = RobustServer(model, clients, test_data, config)
         history = server.train()
         results[defense.value] = history[-1]["accuracy"]
-    
+
     print("\n" + "=" * 60)
     print("Defense Comparison")
     for defense, acc in results.items():

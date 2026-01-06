@@ -99,31 +99,31 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MonitorConfig:
     """Monitoring configuration."""
-    
+
     num_rounds: int = 30
     num_clients: int = 15
     clients_per_round: int = 8
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Alerting thresholds
     min_participation_rate: float = 0.5
     max_round_time: float = 60.0
     min_accuracy_threshold: float = 0.5
     max_loss_increase: float = 0.5
-    
+
     seed: int = 42
 
 
 class Alert:
     """Alert representation."""
-    
+
     def __init__(
         self,
         severity: str,
@@ -136,22 +136,22 @@ class Alert:
         self.message = message
         self.details = details
         self.timestamp = datetime.utcnow()
-    
+
     def __str__(self) -> str:
         return f"[{self.severity}] {self.alert_type}: {self.message}"
 
 
 class AlertManager:
     """Manage and dispatch alerts."""
-    
+
     def __init__(self):
         self.alerts: List[Alert] = []
         self.handlers: List[Callable[[Alert], None]] = []
-    
+
     def add_handler(self, handler: Callable[[Alert], None]) -> None:
         """Add alert handler."""
         self.handlers.append(handler)
-    
+
     def alert(
         self,
         severity: str,
@@ -162,10 +162,10 @@ class AlertManager:
         """Create and dispatch alert."""
         alert = Alert(severity, alert_type, message, details or {})
         self.alerts.append(alert)
-        
+
         for handler in self.handlers:
             handler(alert)
-    
+
     def get_recent(self, n: int = 10) -> List[Alert]:
         """Get recent alerts."""
         return self.alerts[-n:]
@@ -173,22 +173,22 @@ class AlertManager:
 
 class MetricsCollector:
     """Collect and store metrics."""
-    
+
     def __init__(self):
         self.metrics: Dict[str, List[Tuple[datetime, float]]] = {}
-    
+
     def record(self, name: str, value: float) -> None:
         """Record metric value."""
         if name not in self.metrics:
             self.metrics[name] = []
         self.metrics[name].append((datetime.utcnow(), value))
-    
+
     def get_latest(self, name: str) -> Optional[float]:
         """Get latest metric value."""
         if name in self.metrics and self.metrics[name]:
             return self.metrics[name][-1][1]
         return None
-    
+
     def get_trend(
         self,
         name: str,
@@ -197,29 +197,29 @@ class MetricsCollector:
         """Get trend over window."""
         if name not in self.metrics or len(self.metrics[name]) < 2:
             return None
-        
+
         recent = self.metrics[name][-window:]
         values = [v for _, v in recent]
-        
+
         if len(values) < 2:
             return 0.0
-        
+
         return (values[-1] - values[0]) / len(values)
 
 
 class FLMonitor:
     """Central monitoring for FL."""
-    
+
     def __init__(self, config: MonitorConfig):
         self.config = config
         self.metrics = MetricsCollector()
         self.alerts = AlertManager()
-        
+
         # Add default alert handler
         self.alerts.add_handler(self._log_alert)
-        
+
         self.round_start_time: Optional[float] = None
-    
+
     def _log_alert(self, alert: Alert) -> None:
         """Log alert to console."""
         if alert.severity == "CRITICAL":
@@ -228,12 +228,12 @@ class FLMonitor:
             logger.warning(str(alert))
         else:
             logger.info(str(alert))
-    
+
     def start_round(self, round_num: int) -> None:
         """Mark round start."""
         self.round_start_time = time.time()
         self.metrics.record("round_start", round_num)
-    
+
     def end_round(
         self,
         round_num: int,
@@ -245,19 +245,19 @@ class FLMonitor:
         """Record round end metrics."""
         round_time = time.time() - self.round_start_time if self.round_start_time else 0
         participation_rate = num_participants / num_selected if num_selected > 0 else 0
-        
+
         # Record metrics
         self.metrics.record("accuracy", accuracy)
         self.metrics.record("loss", loss)
         self.metrics.record("round_time", round_time)
         self.metrics.record("participation_rate", participation_rate)
-        
+
         # Check for alerts
         self._check_participation(participation_rate, round_num)
         self._check_round_time(round_time, round_num)
         self._check_accuracy(accuracy, round_num)
         self._check_loss_trend(round_num)
-    
+
     def _check_participation(self, rate: float, round_num: int) -> None:
         """Check participation rate."""
         if rate < self.config.min_participation_rate:
@@ -267,7 +267,7 @@ class FLMonitor:
                 f"Participation rate {rate:.2%} below threshold",
                 {"round": round_num, "rate": rate}
             )
-    
+
     def _check_round_time(self, round_time: float, round_num: int) -> None:
         """Check round time."""
         if round_time > self.config.max_round_time:
@@ -277,7 +277,7 @@ class FLMonitor:
                 f"Round time {round_time:.1f}s exceeds limit",
                 {"round": round_num, "time": round_time}
             )
-    
+
     def _check_accuracy(self, accuracy: float, round_num: int) -> None:
         """Check accuracy threshold."""
         if round_num > 5 and accuracy < self.config.min_accuracy_threshold:
@@ -287,7 +287,7 @@ class FLMonitor:
                 f"Accuracy {accuracy:.4f} below threshold",
                 {"round": round_num, "accuracy": accuracy}
             )
-    
+
     def _check_loss_trend(self, round_num: int) -> None:
         """Check for increasing loss."""
         trend = self.metrics.get_trend("loss", 5)
@@ -298,7 +298,7 @@ class FLMonitor:
                 f"Loss increasing: trend = {trend:.4f}",
                 {"round": round_num, "trend": trend}
             )
-    
+
     def record_client_update(
         self,
         client_id: int,
@@ -308,7 +308,7 @@ class FLMonitor:
         """Record client update metrics."""
         self.metrics.record(f"client_{client_id}_time", training_time)
         self.metrics.record(f"client_{client_id}_loss", loss)
-    
+
     def get_summary(self) -> Dict[str, Any]:
         """Get monitoring summary."""
         return {
@@ -322,7 +322,7 @@ class FLMonitor:
 
 class MonitorDataset(Dataset):
     """Dataset for monitoring experiments."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -332,16 +332,16 @@ class MonitorDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
@@ -354,7 +354,7 @@ class MonitorModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
@@ -371,18 +371,18 @@ class MonitorClient:
         self.dataset = dataset
         self.config = config
         self.monitor = monitor
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         start = time.time()
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
@@ -391,12 +391,12 @@ class MonitorClient:
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         training_time = time.time() - start
         avg_loss = total_loss / num_batches
-        
+
         self.monitor.record_client_update(self.client_id, training_time, avg_loss)
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -419,23 +419,23 @@ class MonitorServer:
         self.config = config
         self.monitor = monitor
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Tuple[float, float]:
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total, total_loss = 0, 0, 0.0
         with torch.no_grad():
             for x, y in loader:
@@ -444,36 +444,36 @@ class MonitorServer:
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += F.cross_entropy(output, y).item()
-        
+
         return correct / total, total_loss / len(loader)
-    
+
     def train(self) -> List[Dict]:
         logger.info(f"Starting monitored FL with {len(self.clients)} clients")
-        
+
         for round_num in range(self.config.num_rounds):
             self.monitor.start_round(round_num)
-            
+
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model) for c in selected]
-            
+
             self.aggregate(updates)
-            
+
             accuracy, loss = self.evaluate()
-            
+
             self.monitor.end_round(
                 round_num, accuracy, loss,
                 len(updates), n
             )
-            
+
             record = {"round": round_num, "accuracy": accuracy, "loss": loss}
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(f"Round {round_num + 1}: acc={accuracy:.4f}")
-        
+
         return self.history
 
 
@@ -481,25 +481,25 @@ def main():
     print("=" * 60)
     print("Tutorial 129: FL Monitoring")
     print("=" * 60)
-    
+
     config = MonitorConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     monitor = FLMonitor(config)
-    
+
     clients = []
     for i in range(config.num_clients):
         dataset = MonitorDataset(client_id=i, dim=config.input_dim, seed=config.seed)
         client = MonitorClient(i, dataset, config, monitor)
         clients.append(client)
-    
+
     test_data = MonitorDataset(client_id=999, n=300, seed=999)
     model = MonitorModel(config)
-    
+
     server = MonitorServer(model, clients, test_data, config, monitor)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Monitoring Summary")
     summary = monitor.get_summary()

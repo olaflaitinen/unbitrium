@@ -122,34 +122,34 @@ class CompressionMethod(Enum):
 @dataclass
 class CommConfig:
     """Configuration for communication optimization."""
-    
+
     num_rounds: int = 50
     num_clients: int = 20
     clients_per_round: int = 10
-    
+
     input_dim: int = 32
     hidden_dim: int = 64
     num_classes: int = 10
-    
+
     learning_rate: float = 0.01
     batch_size: int = 32
     local_epochs: int = 3
-    
+
     # Compression parameters
     compression_method: CompressionMethod = CompressionMethod.TOP_K
     top_k_ratio: float = 0.01  # Keep top 1%
     quantization_bits: int = 8
-    
+
     seed: int = 42
 
 
 class Compressor:
     """Gradient/update compressor."""
-    
+
     def __init__(self, config: CommConfig):
         self.config = config
         self.error_feedback: Dict[str, torch.Tensor] = {}
-    
+
     def compress(
         self,
         tensor: torch.Tensor,
@@ -157,46 +157,46 @@ class Compressor:
     ) -> Tuple[Any, Dict]:
         """Compress tensor with error feedback."""
         method = self.config.compression_method
-        
+
         # Apply error feedback
         if name in self.error_feedback:
             tensor = tensor + self.error_feedback[name]
-        
+
         if method == CompressionMethod.NONE:
             return tensor, {"method": "none", "original_size": tensor.numel() * 4}
-        
+
         elif method == CompressionMethod.QUANTIZE_8:
             compressed, meta = self._quantize(tensor, 8)
             error = tensor - self._dequantize(compressed, meta)
             self.error_feedback[name] = error
             return compressed, meta
-        
+
         elif method == CompressionMethod.QUANTIZE_4:
             compressed, meta = self._quantize(tensor, 4)
             error = tensor - self._dequantize(compressed, meta)
             self.error_feedback[name] = error
             return compressed, meta
-        
+
         elif method == CompressionMethod.TOP_K:
             compressed, meta = self._top_k(tensor)
             error = tensor - self._decompress_top_k(compressed, meta)
             self.error_feedback[name] = error
             return compressed, meta
-        
+
         elif method == CompressionMethod.RANDOM_K:
             compressed, meta = self._random_k(tensor)
             error = tensor - self._decompress_top_k(compressed, meta)
             self.error_feedback[name] = error
             return compressed, meta
-        
+
         elif method == CompressionMethod.SIGN_SGD:
             compressed, meta = self._sign_sgd(tensor)
             error = tensor - self._decompress_sign(compressed, meta)
             self.error_feedback[name] = error
             return compressed, meta
-        
+
         return tensor, {"method": "unknown"}
-    
+
     def _quantize(
         self,
         tensor: torch.Tensor,
@@ -206,19 +206,19 @@ class Compressor:
         flat = tensor.flatten()
         min_val = flat.min()
         max_val = flat.max()
-        
+
         scale = (max_val - min_val) / (2 ** bits - 1)
-        
+
         if scale > 0:
             quantized = ((flat - min_val) / scale).round()
         else:
             quantized = torch.zeros_like(flat)
-        
+
         if bits <= 8:
             quantized = quantized.to(torch.uint8)
         else:
             quantized = quantized.to(torch.int16)
-        
+
         meta = {
             "method": f"quantize_{bits}",
             "min": min_val.item(),
@@ -227,9 +227,9 @@ class Compressor:
             "bits": bits,
             "compressed_size": quantized.numel() * (bits / 8)
         }
-        
+
         return quantized, meta
-    
+
     def _dequantize(
         self,
         quantized: torch.Tensor,
@@ -239,20 +239,20 @@ class Compressor:
         scale = (meta["max"] - meta["min"]) / (2 ** meta["bits"] - 1)
         flat = quantized.float() * scale + meta["min"]
         return flat.reshape(meta["shape"])
-    
+
     def _top_k(self, tensor: torch.Tensor) -> Tuple[Dict, Dict]:
         """Top-k sparsification."""
         flat = tensor.flatten()
         k = max(1, int(len(flat) * self.config.top_k_ratio))
-        
+
         values, indices = torch.topk(flat.abs(), k)
         selected_values = flat[indices]
-        
+
         compressed = {
             "values": selected_values,
             "indices": indices
         }
-        
+
         meta = {
             "method": "top_k",
             "shape": tensor.shape,
@@ -260,17 +260,17 @@ class Compressor:
             "original_size": flat.numel() * 4,
             "compressed_size": k * 8  # values + indices
         }
-        
+
         return compressed, meta
-    
+
     def _random_k(self, tensor: torch.Tensor) -> Tuple[Dict, Dict]:
         """Random-k sparsification."""
         flat = tensor.flatten()
         k = max(1, int(len(flat) * self.config.top_k_ratio))
-        
+
         indices = torch.randperm(len(flat))[:k]
         values = flat[indices]
-        
+
         compressed = {"values": values, "indices": indices}
         meta = {
             "method": "random_k",
@@ -279,9 +279,9 @@ class Compressor:
             "original_size": flat.numel() * 4,
             "compressed_size": k * 8
         }
-        
+
         return compressed, meta
-    
+
     def _decompress_top_k(
         self,
         compressed: Dict,
@@ -292,15 +292,15 @@ class Compressor:
         flat = torch.zeros(numel)
         flat[compressed["indices"]] = compressed["values"]
         return flat.reshape(meta["shape"])
-    
+
     def _sign_sgd(self, tensor: torch.Tensor) -> Tuple[torch.Tensor, Dict]:
         """Sign SGD compression."""
         signs = torch.sign(tensor)
         magnitude = tensor.abs().mean()
-        
+
         # Pack signs as bits
         packed = (signs.flatten() > 0).to(torch.uint8)
-        
+
         meta = {
             "method": "sign_sgd",
             "magnitude": magnitude.item(),
@@ -308,9 +308,9 @@ class Compressor:
             "original_size": tensor.numel() * 4,
             "compressed_size": tensor.numel() / 8 + 4
         }
-        
+
         return packed, meta
-    
+
     def _decompress_sign(
         self,
         packed: torch.Tensor,
@@ -319,7 +319,7 @@ class Compressor:
         """Decompress sign SGD."""
         signs = packed.float() * 2 - 1
         return (signs * meta["magnitude"]).reshape(meta["shape"])
-    
+
     def decompress(
         self,
         compressed: Any,
@@ -327,7 +327,7 @@ class Compressor:
     ) -> torch.Tensor:
         """Decompress based on method."""
         method = meta.get("method", "none")
-        
+
         if method == "none":
             return compressed
         elif method.startswith("quantize"):
@@ -336,13 +336,13 @@ class Compressor:
             return self._decompress_top_k(compressed, meta)
         elif method == "sign_sgd":
             return self._decompress_sign(compressed, meta)
-        
+
         return compressed
 
 
 class CommDataset(Dataset):
     """Dataset for communication experiments."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -352,23 +352,23 @@ class CommDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + client_id)
-        
+
         self.x = torch.randn(n, dim, dtype=torch.float32)
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         for i in range(n):
             self.x[i, self.y[i].item() % dim] += 2.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class CommModel(nn.Module):
     """Model for communication experiments."""
-    
+
     def __init__(self, config: CommConfig):
         super().__init__()
         self.net = nn.Sequential(
@@ -376,14 +376,14 @@ class CommModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim, config.num_classes)
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
 
 class CommClient:
     """Client with compressed communication."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -394,54 +394,54 @@ class CommClient:
         self.dataset = dataset
         self.config = config
         self.compressor = Compressor(config)
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train and return compressed update."""
         local = copy.deepcopy(model)
         initial_state = {k: v.clone() for k, v in model.state_dict().items()}
-        
+
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Compute and compress updates
         compressed_updates = {}
         total_original = 0
         total_compressed = 0
-        
+
         for name, param in local.named_parameters():
             delta = param.data - initial_state[name]
             compressed, meta = self.compressor.compress(delta, name)
-            
+
             compressed_updates[name] = {
                 "data": compressed,
                 "meta": meta
             }
-            
+
             total_original += meta.get("original_size", 0)
             total_compressed += meta.get("compressed_size", 0)
-        
+
         return {
             "compressed_updates": compressed_updates,
             "num_samples": len(self.dataset),
@@ -455,7 +455,7 @@ class CommClient:
 
 class CommServer:
     """Server with compression-aware aggregation."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -469,18 +469,18 @@ class CommServer:
         self.config = config
         self.compressor = Compressor(config)
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate compressed updates."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = dict(self.model.state_dict())
-        
+
         for name in new_state:
             delta_sum = torch.zeros_like(new_state[name])
-            
+
             for update in updates:
                 compressed = update["compressed_updates"][name]
                 delta = self.compressor.decompress(
@@ -489,54 +489,54 @@ class CommServer:
                 )
                 weight = update["num_samples"] / total_samples
                 delta_sum += delta * weight
-            
+
             new_state[name] = new_state[name] + delta_sum
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in loader:
                 pred = self.model(x).argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         """Run training."""
         logger.info(f"Starting FL with {self.config.compression_method.value}")
-        
+
         for round_num in range(self.config.num_rounds):
             n = min(self.config.clients_per_round, len(self.clients))
             indices = np.random.choice(len(self.clients), n, replace=False)
             selected = [self.clients[i] for i in indices]
-            
+
             updates = [c.train(self.model) for c in selected]
-            
+
             self.aggregate(updates)
-            
+
             metrics = self.evaluate()
             avg_ratio = np.mean([u["compression_ratio"] for u in updates])
-            
+
             record = {
                 "round": round_num,
                 **metrics,
                 "compression_ratio": avg_ratio
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: acc={metrics['accuracy']:.4f}, "
                     f"compression={avg_ratio:.1f}x"
                 )
-        
+
         return self.history
 
 
@@ -545,38 +545,38 @@ def main():
     print("=" * 60)
     print("Tutorial 109: FL Communication Optimization")
     print("=" * 60)
-    
+
     config = CommConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create clients
     clients = []
     for i in range(config.num_clients):
         dataset = CommDataset(client_id=i, dim=config.input_dim, seed=config.seed)
         client = CommClient(i, dataset, config)
         clients.append(client)
-    
+
     test_data = CommDataset(client_id=999, n=300, seed=999)
-    
+
     # Compare compression methods
     results = {}
     for method in CompressionMethod:
         config.compression_method = method
-        
+
         # Reset compressors
         for c in clients:
             c.compressor = Compressor(config)
-        
+
         model = CommModel(config)
         server = CommServer(model, clients, test_data, config)
         history = server.train()
-        
+
         results[method.value] = {
             "accuracy": history[-1]["accuracy"],
             "compression": history[-1]["compression_ratio"]
         }
-    
+
     print("\n" + "=" * 60)
     print("Compression Comparison")
     for method, r in results.items():

@@ -126,7 +126,7 @@ class FedAvgStrategy(AggregationStrategy):
     def aggregate(self, global_model: nn.Module, updates: list[dict]) -> dict:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in global_model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
@@ -156,7 +156,7 @@ class TrimmedMeanStrategy(AggregationStrategy):
         new_state = {}
         n = len(updates)
         trim = int(n * self.trim_ratio)
-        
+
         for key in global_model.state_dict():
             stacked = torch.stack([u["state_dict"][key].float() for u in updates])
             sorted_vals, _ = stacked.sort(dim=0)
@@ -282,16 +282,16 @@ class FLTrainer(ABC):
     def train(self, num_rounds: int):
         """Template method."""
         self.initialize()
-        
+
         for round_num in range(num_rounds):
             self.notify_round_start(round_num)
-            
+
             updates = self.client_training()
             self.aggregate(updates)
             metrics = self.evaluate()
-            
+
             self.notify_round_end(round_num, metrics)
-        
+
         return self.finalize()
 
     @abstractmethod
@@ -354,7 +354,7 @@ class ModularFLTrainer(FLTrainer):
             local_model = copy.deepcopy(self.model)
             optimizer = torch.optim.SGD(local_model.parameters(), lr=0.01)
             loader = DataLoader(dataset, batch_size=32, shuffle=True)
-            
+
             local_model.train()
             for _ in range(self.config.get("local_epochs", 1)):
                 for x, y in loader:
@@ -362,7 +362,7 @@ class ModularFLTrainer(FLTrainer):
                     loss = F.cross_entropy(local_model(x), y)
                     loss.backward()
                     optimizer.step()
-            
+
             updates.append({
                 "state_dict": local_model.state_dict(),
                 "num_samples": len(dataset),
@@ -382,7 +382,7 @@ class ModularFLTrainer(FLTrainer):
 
 def demo_framework():
     np.random.seed(42)
-    
+
     datasets = []
     for _ in range(5):
         n = 100
@@ -393,11 +393,11 @@ def demo_framework():
     config = {"input_dim": 32, "num_classes": 10, "local_epochs": 2}
     aggregator = FedAvgStrategy()
     trainer = ModularFLTrainer(config, aggregator, datasets)
-    
+
     trainer.add_observer(LoggingObserver())
     metrics_obs = MetricsObserver()
     trainer.add_observer(metrics_obs)
-    
+
     result = trainer.train(num_rounds=10)
     return result
 

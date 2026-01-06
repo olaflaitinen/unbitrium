@@ -90,14 +90,14 @@ graph TB
         A --> C
         A --> D
     end
-    
+
     subgraph "Future FL"
         E[Decentralized Network]
         F[Hierarchical Aggregation]
         G[P2P Learning]
         H[Hybrid Cloud-Edge]
     end
-    
+
     A --> E
     A --> F
     A --> G
@@ -146,7 +146,7 @@ class FutureConfig:
     local_epochs: int = 5
     batch_size: int = 32
     seed: int = 42
-    
+
     # Future features
     enable_continual: bool = True
     enable_personalization: bool = True
@@ -156,7 +156,7 @@ class FutureConfig:
 
 class FutureDataset(Dataset):
     """Dataset with evolving distribution for continual learning."""
-    
+
     def __init__(
         self,
         n: int = 200,
@@ -171,37 +171,37 @@ class FutureDataset(Dataset):
         self.classes = classes
         self.drift_rate = drift_rate
         self.current_shift = 0.0
-        
+
         # Generate base data
         self.x = torch.randn(n, dim)
         self.y = torch.randint(0, classes, (n,))
-        
+
         # Add class-specific patterns
         for i in range(n):
             self.x[i, :classes] += F.one_hot(
                 self.y[i], num_classes=classes
             ).float() * 2.0
-    
+
     def apply_drift(self) -> None:
         """Apply concept drift to data."""
         self.current_shift += self.drift_rate
         drift_noise = torch.randn_like(self.x) * self.current_shift
         self.x = self.x + drift_noise
-    
+
     def __len__(self) -> int:
         return self.n
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class FutureModel(nn.Module):
     """Advanced model architecture for future FL."""
-    
+
     def __init__(self, config: FutureConfig):
         super().__init__()
         self.config = config
-        
+
         # Shared encoder
         self.encoder = nn.Sequential(
             nn.Linear(config.input_dim, config.hidden_dim),
@@ -212,41 +212,41 @@ class FutureModel(nn.Module):
             nn.LayerNorm(config.hidden_dim),
             nn.GELU(),
         )
-        
+
         # Task-specific head
         self.classifier = nn.Sequential(
             nn.Linear(config.hidden_dim, config.hidden_dim // 2),
             nn.GELU(),
             nn.Linear(config.hidden_dim // 2, config.num_classes)
         )
-        
+
         # Personalization adapter (future feature)
         self.adapter = nn.Sequential(
             nn.Linear(config.hidden_dim, config.hidden_dim // 4),
             nn.GELU(),
             nn.Linear(config.hidden_dim // 4, config.hidden_dim)
         )
-    
+
     def forward(
         self,
         x: torch.Tensor,
         use_adapter: bool = False
     ) -> torch.Tensor:
         features = self.encoder(x)
-        
+
         if use_adapter:
             adapted = self.adapter(features)
             features = features + adapted
-        
+
         return self.classifier(features)
-    
+
     def get_shared_params(self) -> Dict[str, torch.Tensor]:
         """Get parameters for federated aggregation."""
         return {
             name: param for name, param in self.named_parameters()
             if 'adapter' not in name
         }
-    
+
     def get_personal_params(self) -> Dict[str, torch.Tensor]:
         """Get personalization parameters."""
         return {
@@ -257,65 +257,65 @@ class FutureModel(nn.Module):
 
 class GradientCompressor:
     """Gradient compression for communication efficiency."""
-    
+
     def __init__(self, compression_ratio: float = 0.1):
         self.ratio = compression_ratio
         self.error_feedback: Dict[str, torch.Tensor] = {}
-    
+
     def compress(
         self,
         gradients: Dict[str, torch.Tensor]
     ) -> Dict[str, Tuple[torch.Tensor, torch.Tensor]]:
         """Compress gradients using top-k sparsification."""
         compressed = {}
-        
+
         for name, grad in gradients.items():
             # Add error feedback
             if name in self.error_feedback:
                 grad = grad + self.error_feedback[name]
-            
+
             # Flatten
             flat = grad.flatten()
             k = max(1, int(len(flat) * self.ratio))
-            
+
             # Top-k selection
             _, indices = torch.topk(flat.abs(), k)
             values = flat[indices]
-            
+
             # Store error for feedback
             mask = torch.zeros_like(flat)
             mask[indices] = 1
             self.error_feedback[name] = (
                 flat * (1 - mask)
             ).reshape(grad.shape)
-            
+
             compressed[name] = (indices, values, grad.shape)
-        
+
         return compressed
-    
+
     def decompress(
         self,
         compressed: Dict[str, Tuple]
     ) -> Dict[str, torch.Tensor]:
         """Decompress gradients."""
         decompressed = {}
-        
+
         for name, (indices, values, shape) in compressed.items():
             flat = torch.zeros(np.prod(shape))
             flat[indices] = values
             decompressed[name] = flat.reshape(shape)
-        
+
         return decompressed
 
 
 class ContinualLearner:
     """Continual learning component for handling distribution shift."""
-    
+
     def __init__(self, memory_size: int = 100):
         self.memory_size = memory_size
         self.memory_x: List[torch.Tensor] = []
         self.memory_y: List[torch.Tensor] = []
-    
+
     def update_memory(
         self,
         x: torch.Tensor,
@@ -331,7 +331,7 @@ class ContinualLearner:
                 idx = np.random.randint(0, self.memory_size)
                 self.memory_x[idx] = x[i].clone()
                 self.memory_y[idx] = y[i].clone()
-    
+
     def get_replay_batch(
         self,
         batch_size: int
@@ -339,22 +339,22 @@ class ContinualLearner:
         """Get batch from replay memory."""
         if len(self.memory_x) < batch_size:
             return None
-        
+
         indices = np.random.choice(
             len(self.memory_x),
             size=min(batch_size, len(self.memory_x)),
             replace=False
         )
-        
+
         x = torch.stack([self.memory_x[i] for i in indices])
         y = torch.stack([self.memory_y[i] for i in indices])
-        
+
         return x, y
 
 
 class FutureClient:
     """Client with future FL capabilities."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -364,12 +364,12 @@ class FutureClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-        
+
         # Future components
         self.compressor = GradientCompressor(config.compression_ratio)
         self.continual = ContinualLearner()
         self.personal_params: Optional[Dict] = None
-    
+
     def train(
         self,
         model: nn.Module,
@@ -379,42 +379,42 @@ class FutureClient:
         # Apply drift for continual learning
         if self.config.enable_continual and round_num > 0:
             self.dataset.apply_drift()
-        
+
         # Create local model
         local_model = copy.deepcopy(model)
-        
+
         # Load personal parameters if available
         if self.personal_params and self.config.enable_personalization:
             for name, param in local_model.named_parameters():
                 if 'adapter' in name and name in self.personal_params:
                     param.data.copy_(self.personal_params[name])
-        
+
         optimizer = torch.optim.AdamW(
             local_model.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local_model.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for epoch in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
-                
+
                 # Forward with adapter for personalization
                 output = local_model(
                     x,
                     use_adapter=self.config.enable_personalization
                 )
                 loss = F.cross_entropy(output, y)
-                
+
                 # Add replay loss for continual learning
                 if self.config.enable_continual:
                     replay = self.continual.get_replay_batch(
@@ -428,20 +428,20 @@ class FutureClient:
                         )
                         replay_loss = F.cross_entropy(replay_out, replay_y)
                         loss = loss + 0.5 * replay_loss
-                
+
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(
                     local_model.parameters(), 1.0
                 )
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-                
+
                 # Update memory
                 if self.config.enable_continual:
                     self.continual.update_memory(x, y)
-        
+
         # Save personal parameters
         if self.config.enable_personalization:
             self.personal_params = {
@@ -449,13 +449,13 @@ class FutureClient:
                 for name, param in local_model.named_parameters()
                 if 'adapter' in name
             }
-        
+
         # Compute update
         update = {}
         for name, param in local_model.named_parameters():
             if 'adapter' not in name:  # Only shared params
                 update[name] = param.data.cpu()
-        
+
         # Compress if enabled
         if self.config.enable_compression:
             # Compute gradients as difference
@@ -469,7 +469,7 @@ class FutureClient:
                 "num_samples": len(self.dataset),
                 "avg_loss": total_loss / num_batches
             }
-        
+
         return {
             "state_dict": update,
             "num_samples": len(self.dataset),
@@ -479,7 +479,7 @@ class FutureClient:
 
 class FutureServer:
     """Server with future FL capabilities."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -492,18 +492,18 @@ class FutureServer:
         self.test_data = test_data
         self.config = config
         self.compressor = GradientCompressor(config.compression_ratio)
-        
+
         # Tracking
         self.history: List[Dict] = []
         self.best_accuracy = 0.0
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate client updates."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         # Handle compressed updates
         if "compressed" in updates[0]:
             # Decompress and aggregate
@@ -515,7 +515,7 @@ class FutureServer:
                     if name not in aggregated_grad:
                         aggregated_grad[name] = torch.zeros_like(grad)
                     aggregated_grad[name] += weight * grad
-            
+
             # Apply aggregated gradient
             with torch.no_grad():
                 for name, param in self.model.named_parameters():
@@ -526,40 +526,40 @@ class FutureServer:
             new_state = {}
             for key in updates[0]["state_dict"]:
                 new_state[key] = sum(
-                    (u["num_samples"] / total_samples) * 
+                    (u["num_samples"] / total_samples) *
                     u["state_dict"][key].float()
                     for u in updates
                 )
-            
+
             current_state = self.model.state_dict()
             for key in new_state:
                 current_state[key] = new_state[key]
             self.model.load_state_dict(current_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model on test data."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=64)
-        
+
         correct = 0
         total = 0
         total_loss = 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 output = self.model(x, use_adapter=False)
                 loss = F.cross_entropy(output, y)
-                
+
                 pred = output.argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
                 total_loss += loss.item() * len(y)
-        
+
         return {
             "accuracy": correct / total,
             "loss": total_loss / total
         }
-    
+
     def train(self) -> List[Dict]:
         """Run federated training."""
         for round_num in range(self.config.num_rounds):
@@ -570,20 +570,20 @@ class FutureServer:
                 replace=False
             )
             selected_clients = [self.clients[i] for i in selected_indices]
-            
+
             # Collect updates
             updates = []
             for client in selected_clients:
                 update = client.train(self.model, round_num)
                 updates.append(update)
-            
+
             # Aggregate
             self.aggregate(updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
             avg_loss = np.mean([u["avg_loss"] for u in updates])
-            
+
             # Track
             record = {
                 "round": round_num,
@@ -593,10 +593,10 @@ class FutureServer:
                 "num_clients": len(selected_clients)
             }
             self.history.append(record)
-            
+
             if metrics["accuracy"] > self.best_accuracy:
                 self.best_accuracy = metrics["accuracy"]
-            
+
             if (round_num + 1) % 10 == 0:
                 print(
                     f"Round {round_num + 1}: "
@@ -604,7 +604,7 @@ class FutureServer:
                     f"loss={metrics['loss']:.4f}, "
                     f"best={self.best_accuracy:.4f}"
                 )
-        
+
         return self.history
 
 
@@ -613,19 +613,19 @@ def main():
     print("=" * 60)
     print("Tutorial 145: Federated Learning Future Directions")
     print("=" * 60)
-    
+
     # Configuration
     config = FutureConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     print(f"\nConfiguration:")
     print(f"  Clients: {config.num_clients}")
     print(f"  Rounds: {config.num_rounds}")
     print(f"  Continual Learning: {config.enable_continual}")
     print(f"  Personalization: {config.enable_personalization}")
     print(f"  Compression: {config.enable_compression}")
-    
+
     # Create datasets with drift
     print("\nCreating datasets with concept drift...")
     datasets = [
@@ -637,13 +637,13 @@ def main():
         )
         for i in range(config.num_clients)
     ]
-    
+
     # Create clients
     clients = [
         FutureClient(i, d, config)
         for i, d in enumerate(datasets)
     ]
-    
+
     # Test data
     test_data = FutureDataset(
         n=500,
@@ -651,18 +651,18 @@ def main():
         classes=config.num_classes,
         seed=999
     )
-    
+
     # Create model
     model = FutureModel(config)
     print(f"\nModel parameters: {sum(p.numel() for p in model.parameters()):,}")
-    
+
     # Create server and train
     server = FutureServer(model, clients, test_data, config)
-    
+
     print("\nStarting federated training...")
     print("-" * 40)
     history = server.train()
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("Training Complete")

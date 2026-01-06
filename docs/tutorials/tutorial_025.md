@@ -178,7 +178,7 @@ class GradientClipper:
     def clip_model(self, model: nn.Module) -> float:
         """Clip model gradients in-place."""
         gradients = [p.grad for p in model.parameters() if p.grad is not None]
-        
+
         total_norm = 0.0
         for g in gradients:
             total_norm += g.norm(2).item() ** 2
@@ -243,10 +243,10 @@ class PrivacyAccountant:
         # For tighter bounds, use RDP or numerical accountant
         avg_sigma = np.mean(self.noise_multipliers)
         avg_q = np.mean(self.sampling_rates)
-        
+
         # Approximate epsilon per step
         eps_per_step = avg_q * np.sqrt(2 * np.log(1.25 / self.delta)) / avg_sigma
-        
+
         # Linear composition (very loose)
         return eps_per_step * np.sqrt(self.steps)
 
@@ -347,13 +347,13 @@ class DPFLServer:
     def aggregate(self, updates: list[dict]) -> None:
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train_round(self, round_num: int) -> dict:

@@ -142,9 +142,9 @@ class ResearchDataset(Dataset):
         client_id: int = 0,
     ):
         np.random.seed(client_id)
-        
+
         self.features = torch.randn(num_samples, input_dim)
-        
+
         if label_dist is not None:
             # Sample from provided distribution
             self.labels = torch.tensor(
@@ -152,7 +152,7 @@ class ResearchDataset(Dataset):
             ).long()
         else:
             self.labels = torch.randint(0, num_classes, (num_samples,))
-        
+
         # Add class-specific bias to features
         for i in range(num_samples):
             self.features[i, self.labels[i].item() % input_dim] += 2.0
@@ -275,7 +275,7 @@ class FedProxResearch(FLAlgorithm):
     ) -> Dict[str, Any]:
         local_model = copy.deepcopy(model)
         global_params = {n: p.clone() for n, p in model.named_parameters()}
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -287,13 +287,13 @@ class FedProxResearch(FLAlgorithm):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local_model(x), y)
-                
+
                 # Proximal term
                 prox_term = 0
                 for name, param in local_model.named_parameters():
                     prox_term += ((param - global_params[name]) ** 2).sum()
                 loss += (self.mu / 2) * prox_term
-                
+
                 loss.backward()
                 optimizer.step()
 
@@ -343,7 +343,7 @@ class SCAFFOLDResearch(FLAlgorithm):
     ) -> Dict[str, Any]:
         if self.server_control is None:
             self.initialize_controls(model)
-        
+
         if client_id not in self.client_controls:
             self.client_controls[client_id] = {
                 n: torch.zeros_like(p)
@@ -353,7 +353,7 @@ class SCAFFOLDResearch(FLAlgorithm):
         local_model = copy.deepcopy(model)
         c_i = self.client_controls[client_id]
         c = self.server_control
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -366,12 +366,12 @@ class SCAFFOLDResearch(FLAlgorithm):
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local_model(x), y)
                 loss.backward()
-                
+
                 # SCAFFOLD correction
                 for name, param in local_model.named_parameters():
                     if param.grad is not None:
                         param.grad.data += c[name] - c_i[name]
-                
+
                 optimizer.step()
 
         # Update client control
@@ -380,7 +380,7 @@ class SCAFFOLDResearch(FLAlgorithm):
         for name, param in local_model.named_parameters():
             old_param = model.state_dict()[name]
             new_c_i[name] = c_i[name] - c[name] + (old_param - param.data) / (K * self.config.learning_rate)
-        
+
         delta_c = {n: new_c_i[n] - c_i[n] for n in new_c_i}
         self.client_controls[client_id] = new_c_i
 
@@ -404,7 +404,7 @@ class SCAFFOLDResearch(FLAlgorithm):
                 for u in client_updates
             )
         global_model.load_state_dict(new_state)
-        
+
         # Update server control
         for name in self.server_control:
             delta_sum = sum(u["delta_control"][name] for u in client_updates)

@@ -156,7 +156,7 @@ class SimpleDataset(Dataset):
 
 class SimplifiedHE:
     """Simplified homomorphic encryption simulation.
-    
+
     Note: This is for educational purposes. Real HE uses
     complex number-theoretic operations.
     """
@@ -204,12 +204,12 @@ class SecretSharing:
         """Split value into additive shares."""
         shares = []
         remaining = value.clone()
-        
+
         for i in range(self.num_parties - 1):
             share = torch.rand_like(value) * 2 - 1  # Random in [-1, 1]
             shares.append(share)
             remaining = remaining - share
-        
+
         shares.append(remaining)
         return shares
 
@@ -236,7 +236,7 @@ class PrivacyEngine:
         self.dp_epsilon = dp_epsilon
         self.dp_delta = dp_delta
         self.clip_norm = clip_norm
-        
+
         if use_he:
             self.he = SimplifiedHE()
         if use_mpc:
@@ -249,19 +249,19 @@ class PrivacyEngine:
     ) -> torch.Tensor:
         """Apply privacy to gradient."""
         result = gradient.clone()
-        
+
         # Clip gradient
         norm = result.norm()
         if norm > self.clip_norm:
             result = result * (self.clip_norm / norm)
-        
+
         # Add DP noise
         if self.use_dp:
             sensitivity = self.clip_norm / num_samples
             sigma = sensitivity * np.sqrt(2 * np.log(1.25 / self.dp_delta)) / self.dp_epsilon
             noise = torch.randn_like(result) * sigma
             result = result + noise
-        
+
         return result
 
     def privatize_update(
@@ -349,10 +349,10 @@ class PPMLServer:
         """Securely aggregate updates."""
         n = len(updates)
         result = {}
-        
+
         for name in updates[0].keys():
             result[name] = sum(u[name] for u in updates) / n
-        
+
         return result
 
     def train_round(self, round_num: int) -> dict:
@@ -406,7 +406,7 @@ def run_ppml_experiment() -> dict:
 
     config = PPMLConfig()
     privacy_engine = PrivacyEngine(use_dp=True, dp_epsilon=1.0)
-    
+
     model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),

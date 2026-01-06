@@ -146,7 +146,7 @@ class AggregationType(Enum):
 @dataclass
 class BNConfig:
     """Configuration for batch normalization experiments."""
-    
+
     # General
     num_rounds: int = 100
     num_clients: int = 20
@@ -155,12 +155,12 @@ class BNConfig:
     batch_size: int = 32
     learning_rate: float = 0.01
     seed: int = 42
-    
+
     # Normalization
     norm_type: NormType = NormType.GROUP
     agg_type: AggregationType = AggregationType.EXCLUDE_BN
     num_groups: int = 4  # For GroupNorm
-    
+
     # Model (CNN-like for 2D data)
     input_channels: int = 1
     input_size: int = 28
@@ -170,14 +170,14 @@ class BNConfig:
 
 class BNDataset(Dataset):
     """Dataset simulating image-like data."""
-    
+
     def __init__(self, num_samples: int, input_size: int, num_classes: int, seed: int = 0):
         np.random.seed(seed)
-        
+
         # Create 2D data (like flattened images)
         self.features = torch.randn(num_samples, 1, input_size, input_size)
         self.labels = torch.randint(0, num_classes, (num_samples,))
-        
+
         # Add class-specific patterns
         for i in range(num_samples):
             label = self.labels[i].item()
@@ -185,7 +185,7 @@ class BNDataset(Dataset):
             row = label % input_size
             col = (label * 3) % input_size
             self.features[i, 0, row:row+3, col:col+3] += 2.0
-    
+
     def __len__(self): return len(self.labels)
     def __getitem__(self, idx): return self.features[idx], self.labels[idx]
 
@@ -206,42 +206,42 @@ def get_norm_layer(norm_type: NormType, num_features: int, num_groups: int = 4) 
 
 class NormalizedCNN(nn.Module):
     """CNN with configurable normalization."""
-    
+
     def __init__(self, config: BNConfig):
         super().__init__()
         self.config = config
-        
+
         # Conv block 1
         self.conv1 = nn.Conv2d(config.input_channels, config.hidden_channels, 3, padding=1)
         self.norm1 = get_norm_layer(config.norm_type, config.hidden_channels, config.num_groups)
-        
+
         # Conv block 2
         self.conv2 = nn.Conv2d(config.hidden_channels, config.hidden_channels * 2, 3, padding=1)
         self.norm2 = get_norm_layer(config.norm_type, config.hidden_channels * 2, config.num_groups)
-        
+
         # Classifier
         flat_size = (config.input_size // 4) ** 2 * config.hidden_channels * 2
         self.fc = nn.Linear(flat_size, config.num_classes)
-        
+
         self.pool = nn.MaxPool2d(2)
         self.relu = nn.ReLU()
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv1(x)
         x = self.norm1(x)
         x = self.relu(x)
         x = self.pool(x)
-        
+
         x = self.conv2(x)
         x = self.norm2(x)
         x = self.relu(x)
         x = self.pool(x)
-        
+
         x = x.flatten(1)
         x = self.fc(x)
-        
+
         return x
-    
+
     def get_bn_params(self) -> Dict[str, torch.Tensor]:
         """Get only BatchNorm parameters."""
         bn_params = {}
@@ -253,7 +253,7 @@ class NormalizedCNN(nn.Module):
                 bn_params[f"{name}.running_mean"] = module.running_mean.clone()
                 bn_params[f"{name}.running_var"] = module.running_var.clone()
         return bn_params
-    
+
     def set_bn_params(self, bn_params: Dict[str, torch.Tensor]) -> None:
         """Set BatchNorm parameters."""
         for name, module in self.named_modules():
@@ -273,50 +273,50 @@ class NormalizedCNN(nn.Module):
 def create_heterogeneous_data(config: BNConfig) -> Tuple[List[BNDataset], BNDataset]:
     """Create heterogeneous data with different distributions."""
     np.random.seed(config.seed)
-    
+
     datasets = []
     for i in range(config.num_clients):
         # Each client has different data characteristics
         n = np.random.randint(50, 150)
         dataset = BNDataset(n, config.input_size, config.num_classes, seed=i)
-        
+
         # Add client-specific noise/shift
         shift = (i / config.num_clients) * 2 - 1  # Range [-1, 1]
         dataset.features += shift * 0.5
-        
+
         datasets.append(dataset)
-    
+
     # Balanced test set
     test_dataset = BNDataset(500, config.input_size, config.num_classes, seed=9999)
-    
+
     return datasets, test_dataset
 
 
 class BNClient:
     """FL client with batch normalization handling."""
-    
+
     def __init__(self, client_id: int, dataset: BNDataset, config: BNConfig):
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-        
+
         # Store local BN parameters for FedBN
         self.local_bn_params: Optional[Dict[str, torch.Tensor]] = None
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train locally, optionally preserving BN stats."""
         local = copy.deepcopy(model)
-        
+
         # Restore local BN params if using FedBN
         if self.config.agg_type == AggregationType.EXCLUDE_BN and self.local_bn_params:
             local.set_bn_params(self.local_bn_params)
-        
+
         opt = torch.optim.SGD(local.parameters(), lr=self.config.learning_rate, momentum=0.9)
         loader = DataLoader(self.dataset, batch_size=self.config.batch_size, shuffle=True)
-        
+
         local.train()
         total_loss, n_batches = 0, 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 opt.zero_grad()
@@ -325,11 +325,11 @@ class BNClient:
                 opt.step()
                 total_loss += loss.item()
                 n_batches += 1
-        
+
         # Save local BN params for FedBN
         if self.config.agg_type == AggregationType.EXCLUDE_BN:
             self.local_bn_params = local.get_bn_params()
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "bn_params": local.get_bn_params() if self.config.norm_type == NormType.BATCH else {},
@@ -340,7 +340,7 @@ class BNClient:
 
 class BNServer:
     """FL server with batch normalization handling."""
-    
+
     def __init__(self, model: nn.Module, clients: List[BNClient],
                  test_dataset: BNDataset, config: BNConfig):
         self.model = model
@@ -348,16 +348,16 @@ class BNServer:
         self.test_dataset = test_dataset
         self.config = config
         self.history = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate with BN handling."""
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             # Check if this is a BN parameter
             is_bn = any(bn_key in key for bn_key in ["running_mean", "running_var", "num_batches"])
-            
+
             if self.config.agg_type == AggregationType.EXCLUDE_BN and is_bn:
                 # Keep current server BN params
                 new_state[key] = self.model.state_dict()[key]
@@ -373,42 +373,42 @@ class BNServer:
                     (u["num_samples"]/total) * u["state_dict"][key].float()
                     for u in updates
                 )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Tuple[float, float]:
         self.model.eval()
         loader = DataLoader(self.test_dataset, batch_size=128)
         correct, total, loss = 0, 0, 0.0
-        
+
         with torch.no_grad():
             for x, y in loader:
                 out = self.model(x)
                 loss += F.cross_entropy(out, y).item() * len(y)
                 correct += (out.argmax(1) == y).sum().item()
                 total += len(y)
-        
+
         return correct / total, loss / total
-    
+
     def train(self) -> List[Dict]:
         for r in range(self.config.num_rounds):
             selected = np.random.choice(self.clients, min(self.config.clients_per_round, len(self.clients)), replace=False)
             updates = [c.train(self.model) for c in selected]
             self.aggregate(updates)
-            
+
             acc, loss = self.evaluate()
             self.history.append({"round": r, "accuracy": acc, "loss": loss})
-            
+
             if (r + 1) % 10 == 0:
                 print(f"Round {r+1}: acc={acc:.4f}")
-        
+
         return self.history
 
 
 def compare_normalization():
     """Compare different normalization strategies."""
     results = {}
-    
+
     for norm_type in [NormType.BATCH, NormType.GROUP, NormType.LAYER]:
         config = BNConfig(
             num_rounds=30,
@@ -416,19 +416,19 @@ def compare_normalization():
             norm_type=norm_type,
             agg_type=AggregationType.EXCLUDE_BN if norm_type == NormType.BATCH else AggregationType.FULL,
         )
-        
+
         torch.manual_seed(config.seed)
         np.random.seed(config.seed)
-        
+
         datasets, test = create_heterogeneous_data(config)
         clients = [BNClient(i, d, config) for i, d in enumerate(datasets)]
         model = NormalizedCNN(config)
         server = BNServer(model, clients, test, config)
-        
+
         print(f"\n=== {norm_type.value.upper()} ===")
         history = server.train()
         results[norm_type.value] = history[-1]["accuracy"]
-    
+
     print("\n=== Results ===")
     for name, acc in results.items():
         print(f"{name}: {acc:.4f}")

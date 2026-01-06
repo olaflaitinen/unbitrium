@@ -187,12 +187,12 @@ class SearchableNetwork(nn.Module):
     ):
         super().__init__()
         self.cells = nn.ModuleList()
-        
+
         prev_dim = input_dim
         for hidden_dim in hidden_dims:
             self.cells.append(SearchableCell(prev_dim, hidden_dim, num_ops))
             prev_dim = hidden_dim
-        
+
         self.classifier = nn.Linear(prev_dim, num_classes)
 
     def forward(self, x):
@@ -238,7 +238,7 @@ class FedNASClient:
     def train(self, model: nn.Module) -> dict:
         """Train weights and architecture."""
         local_model = copy.deepcopy(model)
-        
+
         # Two optimizers: weights and architecture
         weight_optimizer = torch.optim.Adam(
             local_model.weight_parameters(),
@@ -248,7 +248,7 @@ class FedNASClient:
             local_model.arch_parameters(),
             lr=self.config.arch_lr,
         )
-        
+
         train_loader = DataLoader(
             self.train_data,
             batch_size=self.config.batch_size,
@@ -315,13 +315,13 @@ class FedNASServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -331,7 +331,7 @@ class FedNASServer:
 
             # Get global architecture
             arch = self.model.get_architecture()
-            
+
             self.history.append({
                 "round": round_num,
                 "architecture": arch,
@@ -348,7 +348,7 @@ def simulate_federated_nas() -> dict:
     torch.manual_seed(42)
 
     config = FedNASConfig()
-    
+
     clients = []
     for i in range(config.num_clients):
         # Training data
@@ -357,14 +357,14 @@ def simulate_federated_nas() -> dict:
         train_labels = np.random.randint(0, config.num_classes, n_train)
         for j in range(n_train):
             train_features[j, train_labels[j] % config.input_dim] += 2.0
-        
+
         # Validation data
         n_val = n_train // 4
         val_features = np.random.randn(n_val, config.input_dim).astype(np.float32)
         val_labels = np.random.randint(0, config.num_classes, n_val)
         for j in range(n_val):
             val_features[j, val_labels[j] % config.input_dim] += 2.0
-        
+
         train_data = NASDataset(train_features, train_labels)
         val_data = NASDataset(val_features, val_labels)
         clients.append(FedNASClient(i, train_data, val_data, config))

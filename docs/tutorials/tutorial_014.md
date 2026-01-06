@@ -242,15 +242,15 @@ class QuantizationCompressor(Compressor):
     ) -> CompressionResult:
         """Quantize tensor to fixed-point."""
         original_size = self.tensor_size_bytes(tensor)
-        
+
         # Compute scale and zero point
         t_min = tensor.min().item()
         t_max = tensor.max().item()
         scale = (t_max - t_min) / (self.levels - 1) if t_max > t_min else 1.0
-        
+
         # Quantize
         quantized = ((tensor - t_min) / scale).round().clamp(0, self.levels - 1)
-        
+
         # Store as appropriate dtype
         if self.bits <= 8:
             quantized = quantized.to(torch.uint8)
@@ -258,7 +258,7 @@ class QuantizationCompressor(Compressor):
             quantized = quantized.to(torch.int16)
 
         compressed_size = quantized.numel() * (self.bits // 8 + 1)
-        
+
         return CompressionResult(
             compressed_data={
                 "quantized": quantized,
@@ -294,28 +294,28 @@ class StochasticQuantizer(Compressor):
     ) -> CompressionResult:
         """Stochastically quantize tensor."""
         original_size = self.tensor_size_bytes(tensor)
-        
+
         # Normalize to [0, 1]
         norm = tensor.norm()
         if norm > 0:
             normalized = tensor / norm
         else:
             normalized = tensor
-        
+
         # Scale to [0, levels-1]
         scaled = (normalized.abs() * (self.levels - 1))
         lower = scaled.floor()
         prob = scaled - lower
-        
+
         # Stochastic rounding
         rand = torch.rand_like(prob)
         quantized = torch.where(rand < prob, lower + 1, lower)
         quantized = quantized * normalized.sign()
-        
+
         # Store compressed
         quantized_int = quantized.to(torch.int16)
         compressed_size = quantized_int.numel() * 2 + 4  # +4 for norm
-        
+
         return CompressionResult(
             compressed_data={
                 "quantized": quantized_int,
@@ -358,16 +358,16 @@ class TopKCompressor(Compressor):
         """Keep only top-K elements by magnitude."""
         original_size = self.tensor_size_bytes(tensor)
         flat = tensor.flatten()
-        
+
         k = max(1, int(len(flat) * self.k_ratio))
-        
+
         # Get top-K indices and values
         values, indices = torch.topk(flat.abs(), k)
         top_values = flat[indices]
-        
+
         # Compressed representation
         compressed_size = k * (4 + 4)  # indices + values
-        
+
         return CompressionResult(
             compressed_data={
                 "indices": indices,
@@ -407,13 +407,13 @@ class RandomKCompressor(Compressor):
         flat = tensor.flatten()
         n = len(flat)
         k = max(1, int(n * self.k_ratio))
-        
+
         # Random selection
         indices = torch.randperm(n)[:k]
         values = flat[indices] * (n / k)  # Scale for unbiasedness
-        
+
         compressed_size = k * 8
-        
+
         return CompressionResult(
             compressed_data={
                 "indices": indices,
@@ -450,13 +450,13 @@ class ThresholdCompressor(Compressor):
         """Keep elements above threshold."""
         original_size = self.tensor_size_bytes(tensor)
         flat = tensor.flatten()
-        
+
         mask = flat.abs() > self.threshold
         indices = mask.nonzero(as_tuple=True)[0]
         values = flat[indices]
-        
+
         compressed_size = len(indices) * 8
-        
+
         return CompressionResult(
             compressed_data={
                 "indices": indices,
@@ -504,14 +504,14 @@ class ErrorFeedbackCompressor:
         # Add accumulated error
         if key in self.error_buffer:
             tensor = tensor + self.error_buffer[key]
-        
+
         # Compress
         result = self.compressor.compress(tensor)
-        
+
         # Compute and store error
         reconstructed = self.compressor.decompress(result)
         self.error_buffer[key] = tensor - reconstructed
-        
+
         return result
 
     def reset_error(self) -> None:
@@ -542,16 +542,16 @@ def compare_compressors(
     for name, compressor in compressors.items():
         compressed = compressor.compress(original)
         reconstructed = compressor.decompress(compressed)
-        
+
         # Compute metrics
         mse = ((original - reconstructed) ** 2).mean().item()
-        
+
         results[name] = {
             "compression_ratio": compressed.compression_ratio,
             "mse": mse,
             "relative_error": (reconstructed - original).norm().item() / original.norm().item(),
         }
-        
+
         print(f"{name}: ratio={compressed.compression_ratio:.2f}x, MSE={mse:.6f}")
 
     return results

@@ -191,7 +191,7 @@ class DifferentialPrivacyModule:
     def add_noise(self, model: nn.Module, num_samples: int):
         """Add Gaussian noise for DP."""
         sigma = self.clip_norm * np.sqrt(2 * np.log(1.25 / 1e-5)) / self.epsilon / num_samples
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 noise = torch.randn_like(param.grad) * sigma
@@ -316,25 +316,25 @@ class HealthcareFLServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def evaluate(self, test_data: MedicalDataset) -> dict:
         """Evaluate on held-out test data."""
         self.model.eval()
         loader = DataLoader(test_data, batch_size=128)
-        
+
         correct = 0
         total = 0
         all_preds = []
         all_labels = []
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = self.model(features)
@@ -343,10 +343,10 @@ class HealthcareFLServer:
                 total += len(labels)
                 all_preds.extend(preds.tolist())
                 all_labels.extend(labels.tolist())
-        
+
         # Compute metrics
         accuracy = correct / total
-        
+
         return {"accuracy": accuracy, "total": total}
 
     def train(self, test_data: MedicalDataset = None) -> list[dict]:

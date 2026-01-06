@@ -14,8 +14,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from unbitrium.aggregators import FedAvg
-from unbitrium.partitioning import DirichletPartitioner
 from unbitrium.metrics.heterogeneity import compute_label_entropy
+from unbitrium.partitioning import DirichletPartitioner
 
 
 def create_synthetic_data(

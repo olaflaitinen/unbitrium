@@ -123,30 +123,30 @@ class DeviceClass(Enum):
 @dataclass
 class IoTConfig:
     """Configuration for IoT FL."""
-    
+
     num_rounds: int = 50
     num_devices: int = 50
     devices_per_round: int = 20
     num_gateways: int = 5
-    
+
     # Model parameters (tiny)
     input_dim: int = 10
     hidden_dim: int = 16
     num_classes: int = 5
-    
+
     learning_rate: float = 0.01
     batch_size: int = 8
     local_epochs: int = 2
-    
+
     # Gateway aggregation
     gateway_rounds: int = 3
-    
+
     seed: int = 42
 
 
 class IoTDataset(Dataset):
     """Sensor data dataset."""
-    
+
     def __init__(
         self,
         device_id: int,
@@ -156,43 +156,43 @@ class IoTDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + device_id)
-        
+
         # Simulate sensor readings
         self.x = torch.randn(n, dim, dtype=torch.float32) * 0.5
         self.y = torch.randint(0, classes, (n,), dtype=torch.long)
-        
+
         # Add class-specific patterns
         for i in range(n):
             cls = self.y[i].item()
             self.x[i, cls % dim] += 1.0
-    
+
     def __len__(self) -> int:
         return len(self.y)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.x[idx], self.y[idx]
 
 
 class TinyModel(nn.Module):
     """Ultra-lightweight model for IoT."""
-    
+
     def __init__(self, config: IoTConfig):
         super().__init__()
-        
+
         # Minimal architecture
         self.layer1 = nn.Linear(config.input_dim, config.hidden_dim)
         self.layer2 = nn.Linear(config.hidden_dim, config.num_classes)
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.layer1(x))
         return self.layer2(x)
-    
+
     def get_memory_bytes(self) -> int:
         """Estimate memory footprint."""
         params = sum(p.numel() * 4 for p in self.parameters())  # Float32
         activations = self.layer1.out_features * 4  # Estimated
         return params + activations
-    
+
     def quantize_int8(self) -> Dict[str, torch.Tensor]:
         """Quantize to int8 for transmission."""
         quantized = {}
@@ -204,7 +204,7 @@ class TinyModel(nn.Module):
                 q = torch.zeros_like(param, dtype=torch.int8)
             quantized[name] = {"data": q, "scale": scale.item()}
         return quantized
-    
+
     @staticmethod
     def dequantize(quantized: Dict) -> Dict[str, torch.Tensor]:
         """Dequantize int8 to float32."""
@@ -216,7 +216,7 @@ class TinyModel(nn.Module):
 
 class IoTDevice:
     """Simulated IoT device."""
-    
+
     def __init__(
         self,
         device_id: int,
@@ -230,10 +230,10 @@ class IoTDevice:
         self.config = config
         self.device_class = device_class
         self.gateway_id = gateway_id
-        
+
         # Battery simulation
         self.battery_level = np.random.uniform(0.5, 1.0)
-    
+
     def can_train(self, model_bytes: int) -> bool:
         """Check if device can train."""
         # Memory check based on class
@@ -243,55 +243,55 @@ class IoTDevice:
             DeviceClass.CLASS_2: 50 * 1024,
             DeviceClass.CONSTRAINED: 256 * 1024
         }
-        
+
         if model_bytes > class_limits[self.device_class]:
             return False
-        
+
         # Battery check
         if self.battery_level < 0.1:
             return False
-        
+
         return True
-    
+
     def train(self, model: nn.Module) -> Optional[Dict[str, Any]]:
         """Train on local sensor data."""
         model_bytes = model.get_memory_bytes()
-        
+
         if not self.can_train(model_bytes):
             return None
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for x, y in loader:
                 optimizer.zero_grad()
                 loss = F.cross_entropy(local(x), y)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Simulate battery drain
         self.battery_level -= 0.05
-        
+
         # Quantize for transmission
         quantized = local.quantize_int8()
-        
+
         return {
             "quantized": quantized,
             "num_samples": len(self.dataset),
@@ -303,7 +303,7 @@ class IoTDevice:
 
 class IoTGateway:
     """Edge gateway for hierarchical aggregation."""
-    
+
     def __init__(
         self,
         gateway_id: int,
@@ -313,10 +313,10 @@ class IoTGateway:
         self.gateway_id = gateway_id
         self.devices = devices
         self.config = config
-        
+
         # Local model at gateway
         self.local_model = TinyModel(config)
-    
+
     def aggregate_local(
         self,
         updates: List[Dict]
@@ -324,29 +324,29 @@ class IoTGateway:
         """Aggregate updates from local devices."""
         if not updates:
             return {}
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for name in updates[0]["quantized"]:
             weighted_sum = None
             for u in updates:
                 dequant = u["quantized"][name]["data"].float() * u["quantized"][name]["scale"]
                 weight = u["num_samples"] / total_samples
-                
+
                 if weighted_sum is None:
                     weighted_sum = dequant * weight
                 else:
                     weighted_sum += dequant * weight
-            
+
             new_state[name] = weighted_sum
-        
+
         return new_state
-    
+
     def train_round(self, global_model: nn.Module) -> Dict[str, Any]:
         """Run local FL rounds."""
         self.local_model.load_state_dict(global_model.state_dict())
-        
+
         for _ in range(self.config.gateway_rounds):
             # Collect from devices
             updates = []
@@ -354,15 +354,15 @@ class IoTGateway:
                 update = device.train(self.local_model)
                 if update is not None:
                     updates.append(update)
-            
+
             if not updates:
                 continue
-            
+
             # Aggregate locally
             aggregated = self.aggregate_local(updates)
             if aggregated:
                 self.local_model.load_state_dict(aggregated)
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in self.local_model.state_dict().items()},
             "num_samples": sum(len(d.dataset) for d in self.devices),
@@ -373,7 +373,7 @@ class IoTGateway:
 
 class IoTServer:
     """Cloud server for IoT FL."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -386,56 +386,56 @@ class IoTServer:
         self.test_data = test_data
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate from gateways."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=32)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for x, y in loader:
                 pred = self.model(x).argmax(dim=1)
                 correct += (pred == y).sum().item()
                 total += len(y)
-        
+
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         """Run hierarchical FL."""
         logger.info(f"Starting IoT FL with {len(self.gateways)} gateways")
-        
+
         for round_num in range(self.config.num_rounds):
             # Collect from gateways
             gateway_updates = []
             for gateway in self.gateways:
                 update = gateway.train_round(self.model)
                 gateway_updates.append(update)
-            
+
             # Aggregate at cloud
             self.aggregate(gateway_updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             total_devices = sum(u["num_devices"] for u in gateway_updates)
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -443,14 +443,14 @@ class IoTServer:
                 "total_devices": total_devices
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: "
                     f"acc={metrics['accuracy']:.4f}, "
                     f"devices={total_devices}"
                 )
-        
+
         return self.history
 
 
@@ -459,20 +459,20 @@ def main():
     print("=" * 60)
     print("Tutorial 117: FL for IoT")
     print("=" * 60)
-    
+
     config = IoTConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create devices and gateways
     device_classes = list(DeviceClass)
     gateways = []
-    
+
     device_id = 0
     for gateway_id in range(config.num_gateways):
         devices = []
         devices_per_gateway = config.num_devices // config.num_gateways
-        
+
         for _ in range(devices_per_gateway):
             device_class = device_classes[device_id % len(device_classes)]
             dataset = IoTDataset(
@@ -490,21 +490,21 @@ def main():
             )
             devices.append(device)
             device_id += 1
-        
+
         gateway = IoTGateway(gateway_id, devices, config)
         gateways.append(gateway)
-    
+
     # Test data
     test_data = IoTDataset(device_id=999, n=200, seed=999)
-    
+
     # Model
     model = TinyModel(config)
     logger.info(f"Model size: {model.get_memory_bytes()} bytes")
-    
+
     # Train
     server = IoTServer(model, gateways, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Training Complete")
     print(f"Final Accuracy: {history[-1]['accuracy']:.4f}")

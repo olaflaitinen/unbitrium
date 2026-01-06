@@ -390,7 +390,7 @@ class RotationSkew(FeatureSkewGenerator):
     ) -> np.ndarray:
         """Generate features with rotation."""
         angle = params["angle"]
-        
+
         # Generate base features
         features = np.zeros(
             (len(labels), self.config.feature_dim),
@@ -430,7 +430,7 @@ class FeatureSkewAnalyzer:
             Dictionary of metrics.
         """
         all_features = [features for features, _ in client_data]
-        
+
         return {
             "mean_distances": self._compute_mean_distances(all_features),
             "variance_ratios": self._compute_variance_ratios(all_features),
@@ -445,15 +445,15 @@ class FeatureSkewAnalyzer:
         """Compute pairwise mean distances."""
         n = len(all_features)
         distances = np.zeros((n, n))
-        
+
         means = [f.mean(axis=0) for f in all_features]
-        
+
         for i in range(n):
             for j in range(i + 1, n):
                 dist = np.linalg.norm(means[i] - means[j])
                 distances[i, j] = dist
                 distances[j, i] = dist
-        
+
         return distances
 
     def _compute_variance_ratios(
@@ -473,21 +473,21 @@ class FeatureSkewAnalyzer:
         """Compute pairwise MMD (simplified)."""
         n = len(all_features)
         mmd = np.zeros((n, n))
-        
+
         for i in range(n):
             for j in range(i + 1, n):
                 # Subsample for efficiency
                 xi = all_features[i][:sample_size]
                 xj = all_features[j][:sample_size]
-                
+
                 # Compute MMD with RBF kernel
                 mi = xi.mean(axis=0)
                 mj = xj.mean(axis=0)
-                
+
                 mmd_val = np.linalg.norm(mi - mj)
                 mmd[i, j] = mmd_val
                 mmd[j, i] = mmd_val
-        
+
         return mmd
 
     def _compute_ks_statistics(
@@ -497,11 +497,11 @@ class FeatureSkewAnalyzer:
         """Compute KS statistics vs first client."""
         ks_stats = []
         base_features = all_features[0][:, 0]
-        
+
         for features in all_features:
             stat, _ = stats.ks_2samp(base_features, features[:, 0])
             ks_stats.append(stat)
-        
+
         return ks_stats
 ```
 
@@ -583,7 +583,7 @@ def compare_mitigation_strategies(
 
     for name, normalizer in strategies.items():
         print(f"\nStrategy: {name}")
-        
+
         # Apply normalization
         if normalizer:
             normalized_data = []
@@ -596,12 +596,12 @@ def compare_mitigation_strategies(
             data_to_use = client_data
 
         accuracy_history = train_with_feature_data(data_to_use, num_rounds)
-        
+
         results[name] = {
             "accuracy": accuracy_history,
             "final_accuracy": accuracy_history[-1],
         }
-        
+
         print(f"Final accuracy: {accuracy_history[-1]:.4f}")
 
     return results
@@ -613,7 +613,7 @@ def train_with_feature_data(
 ) -> list[float]:
     """Train federated model."""
     feature_dim = client_data[0][0].shape[1]
-    
+
     global_model = nn.Sequential(
         nn.Linear(feature_dim, 64),
         nn.ReLU(),

@@ -122,27 +122,27 @@ class DrivingCondition(Enum):
 @dataclass
 class AVConfig:
     """Configuration for AV FL."""
-    
+
     num_rounds: int = 50
     num_vehicles: int = 20
     vehicles_per_round: int = 10
-    
+
     # Perception model
     input_channels: int = 3
     image_size: int = 32
     hidden_dim: int = 64
     num_classes: int = 5  # Vehicle, pedestrian, cyclist, traffic sign, other
-    
+
     learning_rate: float = 0.01
     batch_size: int = 16
     local_epochs: int = 2
-    
+
     seed: int = 42
 
 
 class DrivingDataset(Dataset):
     """Simulated driving perception dataset."""
-    
+
     def __init__(
         self,
         vehicle_id: int,
@@ -153,16 +153,16 @@ class DrivingDataset(Dataset):
         seed: int = 0
     ):
         np.random.seed(seed + vehicle_id)
-        
+
         self.condition = condition
-        
+
         # Simulated images (3 channels)
         self.images = torch.randn(n, 3, img_size, img_size)
         self.labels = torch.randint(0, num_classes, (n,))
-        
+
         # Add condition-specific patterns
         self._add_condition_bias()
-    
+
     def _add_condition_bias(self):
         """Add condition-specific patterns."""
         if self.condition == DrivingCondition.NIGHT:
@@ -172,32 +172,32 @@ class DrivingDataset(Dataset):
             self.images += noise
         elif self.condition == DrivingCondition.SNOW:
             self.images += 0.2  # Brighter
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.images[idx], self.labels[idx]
 
 
 class PerceptionModel(nn.Module):
     """Simplified perception model for object detection."""
-    
+
     def __init__(self, config: AVConfig):
         super().__init__()
-        
+
         # CNN backbone
         self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
         self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
         self.pool = nn.MaxPool2d(2)
-        
+
         # Calculate flattened size
         size = config.image_size // 4  # After 2 pools
         self.fc_input = 32 * size * size
-        
+
         self.fc1 = nn.Linear(self.fc_input, config.hidden_dim)
         self.fc2 = nn.Linear(config.hidden_dim, config.num_classes)
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
@@ -208,7 +208,7 @@ class PerceptionModel(nn.Module):
 
 class VehicleClient:
     """Vehicle as FL client."""
-    
+
     def __init__(
         self,
         vehicle_id: int,
@@ -220,36 +220,36 @@ class VehicleClient:
         self.dataset = dataset
         self.config = config
         self.condition = condition
-        
+
         # Vehicle state
         self.is_connected = True
         self.battery_level = 1.0
-    
+
     def can_train(self) -> bool:
         """Check if vehicle can participate."""
         return self.is_connected and self.battery_level > 0.2
-    
+
     def train(self, model: nn.Module) -> Optional[Dict[str, Any]]:
         """Train on local driving data."""
         if not self.can_train():
             return None
-        
+
         local = copy.deepcopy(model)
         optimizer = torch.optim.Adam(
             local.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True
         )
-        
+
         local.train()
         total_loss = 0.0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for images, labels in loader:
                 optimizer.zero_grad()
@@ -257,13 +257,13 @@ class VehicleClient:
                 loss = F.cross_entropy(output, labels)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         # Simulate battery drain
         self.battery_level -= 0.05
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local.state_dict().items()},
             "num_samples": len(self.dataset),
@@ -275,7 +275,7 @@ class VehicleClient:
 
 class EdgeRSU:
     """Road Side Unit for edge aggregation."""
-    
+
     def __init__(
         self,
         rsu_id: int,
@@ -286,24 +286,24 @@ class EdgeRSU:
         self.vehicles = vehicles
         self.config = config
         self.local_model = PerceptionModel(config)
-    
+
     def aggregate_local(self, updates: List[Dict]) -> Dict[str, torch.Tensor]:
         """Aggregate updates from nearby vehicles."""
         if not updates:
             return {}
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in updates[0]["state_dict"]:
             new_state[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.local_model.load_state_dict(new_state)
         return new_state
-    
+
     def collect_and_aggregate(
         self,
         global_model: nn.Module
@@ -311,7 +311,7 @@ class EdgeRSU:
         """Collect from vehicles and aggregate."""
         updates = []
         conditions = {}
-        
+
         for vehicle in self.vehicles:
             if vehicle.can_train():
                 update = vehicle.train(global_model)
@@ -319,12 +319,12 @@ class EdgeRSU:
                     updates.append(update)
                     cond = update["condition"]
                     conditions[cond] = conditions.get(cond, 0) + 1
-        
+
         if updates:
             aggregated = self.aggregate_local(updates)
         else:
             aggregated = global_model.state_dict()
-        
+
         return {
             "state_dict": aggregated,
             "num_vehicles": len(updates),
@@ -335,7 +335,7 @@ class EdgeRSU:
 
 class AVFLServer:
     """Cloud server for AV fleet learning."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -348,16 +348,16 @@ class AVFLServer:
         self.test_data = test_data
         self.config = config
         self.history: List[Dict] = []
-    
+
     def aggregate(self, rsu_updates: List[Dict]) -> None:
         """Aggregate from RSUs."""
         if not rsu_updates:
             return
-        
+
         total_vehicles = sum(u["num_vehicles"] for u in rsu_updates)
         if total_vehicles == 0:
             return
-        
+
         new_state = {}
         for key in rsu_updates[0]["state_dict"]:
             new_state[key] = sum(
@@ -365,43 +365,43 @@ class AVFLServer:
                 for u in rsu_updates
                 if u["state_dict"]
             )
-        
+
         self.model.load_state_dict(new_state)
-    
+
     def evaluate(self) -> Dict[str, float]:
         """Evaluate perception model."""
         self.model.eval()
         loader = DataLoader(self.test_data, batch_size=32)
-        
+
         correct, total = 0, 0
         with torch.no_grad():
             for images, labels in loader:
                 pred = self.model(images).argmax(dim=1)
                 correct += (pred == labels).sum().item()
                 total += len(labels)
-        
+
         return {"accuracy": correct / total}
-    
+
     def train(self) -> List[Dict]:
         """Run hierarchical FL for AV fleet."""
         logger.info(f"Starting AV FL with {len(self.rsus)} RSUs")
-        
+
         for round_num in range(self.config.num_rounds):
             # Collect from all RSUs
             rsu_updates = []
             total_vehicles = 0
-            
+
             for rsu in self.rsus:
                 update = rsu.collect_and_aggregate(self.model)
                 rsu_updates.append(update)
                 total_vehicles += update["num_vehicles"]
-            
+
             # Global aggregation
             self.aggregate(rsu_updates)
-            
+
             # Evaluate
             metrics = self.evaluate()
-            
+
             record = {
                 "round": round_num,
                 **metrics,
@@ -409,14 +409,14 @@ class AVFLServer:
                 "num_rsus": len(rsu_updates)
             }
             self.history.append(record)
-            
+
             if (round_num + 1) % 10 == 0:
                 logger.info(
                     f"Round {round_num + 1}: "
                     f"acc={metrics['accuracy']:.4f}, "
                     f"vehicles={total_vehicles}"
                 )
-        
+
         return self.history
 
 
@@ -425,19 +425,19 @@ def main():
     print("=" * 60)
     print("Tutorial 118: FL for Autonomous Vehicles")
     print("=" * 60)
-    
+
     config = AVConfig()
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
-    
+
     # Create vehicles with different conditions
     conditions = list(DrivingCondition)
     num_rsus = 4
     vehicles_per_rsu = config.num_vehicles // num_rsus
-    
+
     rsus = []
     vehicle_id = 0
-    
+
     for rsu_id in range(num_rsus):
         vehicles = []
         for _ in range(vehicles_per_rsu):
@@ -451,10 +451,10 @@ def main():
             vehicle = VehicleClient(vehicle_id, dataset, config, condition)
             vehicles.append(vehicle)
             vehicle_id += 1
-        
+
         rsu = EdgeRSU(rsu_id, vehicles, config)
         rsus.append(rsu)
-    
+
     # Test data
     test_data = DrivingDataset(
         vehicle_id=999,
@@ -462,15 +462,15 @@ def main():
         n=300,
         seed=999
     )
-    
+
     # Model
     model = PerceptionModel(config)
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
-    
+
     # Train
     server = AVFLServer(model, rsus, test_data, config)
     history = server.train()
-    
+
     print("\n" + "=" * 60)
     print("Training Complete")
     print(f"Final Accuracy: {history[-1]['accuracy']:.4f}")

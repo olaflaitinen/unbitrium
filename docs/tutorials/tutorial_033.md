@@ -183,18 +183,18 @@ class PowerOfDSelection(SelectionStrategy):
     ) -> list[int]:
         selected = []
         available = list(clients)
-        
+
         while len(selected) < num_select and available:
             # Sample d candidates
             d = min(self.d, len(available))
             candidates_idx = np.random.choice(len(available), d, replace=False)
             candidates = [available[i] for i in candidates_idx]
-            
+
             # Select fastest
             fastest = min(candidates, key=lambda c: c.compute_time)
             selected.append(fastest.client_id)
             available.remove(fastest)
-        
+
         return selected
 
 
@@ -217,7 +217,7 @@ class ClusteredSelection(SelectionStrategy):
         # Select proportionally from each cluster
         num_clusters = len(clusters)
         per_cluster = max(1, num_select // num_clusters)
-        
+
         selected = []
         for cluster_clients in clusters.values():
             if not cluster_clients:
@@ -229,7 +229,7 @@ class ClusteredSelection(SelectionStrategy):
                 replace=False,
             ).tolist()
             selected.extend(chosen)
-        
+
         return selected[:num_select]
 
 
@@ -249,14 +249,14 @@ class ActiveSelection(SelectionStrategy):
         norms = np.array([c.gradient_norm + 1e-6 for c in clients])
         probs = np.exp(norms / self.temperature)
         probs = probs / probs.sum()
-        
+
         selected = np.random.choice(
             [c.client_id for c in clients],
             size=min(num_select, len(clients)),
             replace=False,
             p=probs,
         ).tolist()
-        
+
         return selected
 
 
@@ -341,10 +341,10 @@ def evaluate_selection_strategies(num_rounds: int = 50) -> dict:
             c.last_selected = -1
 
         total_compute_time = 0
-        
+
         for round_num in range(num_rounds):
             selected = strategy.select(clients, 10, round_num)
-            
+
             # Update stats
             round_time = 0
             for cid in selected:
@@ -352,12 +352,12 @@ def evaluate_selection_strategies(num_rounds: int = 50) -> dict:
                 c.selection_count += 1
                 c.last_selected = round_num
                 round_time = max(round_time, c.compute_time)
-            
+
             total_compute_time += round_time
 
         # Compute metrics
         counts = [c.selection_count for c in clients]
-        
+
         results[name] = {
             "total_time": total_compute_time,
             "avg_selections": np.mean(counts),
@@ -372,7 +372,7 @@ def evaluate_selection_strategies(num_rounds: int = 50) -> dict:
 
 if __name__ == "__main__":
     results = evaluate_selection_strategies()
-    
+
     print("\nSelection Strategy Comparison:")
     print("-" * 60)
     for name, metrics in results.items():

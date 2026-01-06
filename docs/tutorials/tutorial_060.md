@@ -175,11 +175,11 @@ class GradientMonitor:
         """Detect gradient anomalies."""
         if len(self.stats_history) < 2:
             return []
-        
+
         anomalies = []
         current = self.stats_history[-1]
         previous = self.stats_history[-2]
-        
+
         for name in current:
             if name in previous:
                 norm_change = abs(current[name]["norm"] - previous[name]["norm"])
@@ -187,7 +187,7 @@ class GradientMonitor:
                     relative_change = norm_change / previous[name]["norm"]
                     if relative_change > threshold:
                         anomalies.append(f"{name}: {relative_change:.2f}x change")
-        
+
         return anomalies
 
 
@@ -218,7 +218,7 @@ class WeightMonitor:
             if self.initial_weights and name in self.initial_weights:
                 change = (w - self.initial_weights[name]).norm().item()
                 stats[name]["change_from_init"] = change
-        
+
         self.weight_history.append(stats)
         return stats
 
@@ -289,18 +289,18 @@ class MonitoredClient:
                 outputs = local_model(features)
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
-                
+
                 # Track gradients
                 if self.config.track_gradients:
                     grad_stats = grad_monitor.compute_stats()
-                
+
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
 
         # Check for anomalies
         anomalies = grad_monitor.detect_anomalies(self.config.anomaly_threshold)
-        
+
         metrics = {
             "client_id": self.client_id,
             "round": round_num,
@@ -337,10 +337,10 @@ class MonitoredServer:
         for round_num in range(self.config.num_rounds):
             updates = [c.train(self.model, round_num) for c in self.clients]
             self.aggregate(updates)
-            
+
             # Monitor weights
             weight_stats = self.weight_monitor.compute_stats()
-            
+
             metrics = {
                 "num_updates": len(updates),
                 "avg_loss": np.mean([u["metrics"]["loss"] for u in updates]),
@@ -367,7 +367,7 @@ def demo_monitoring():
     np.random.seed(42)
     config = MonitoringConfig()
     collector = MetricsCollector()
-    
+
     clients = []
     for i in range(config.num_clients):
         n = np.random.randint(50, 150)

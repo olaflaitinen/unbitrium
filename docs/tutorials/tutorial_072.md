@@ -156,25 +156,25 @@ class MedicalDataset(Dataset):
         class_imbalance: float = 0.5,
     ):
         np.random.seed(hospital_id)
-        
+
         # Simulate hospital-specific class distribution
         if hospital_id % 2 == 0:
             probs = [0.6, 0.3, 0.1]  # More normal cases
         else:
             probs = [0.3, 0.4, 0.3]  # More abnormal cases
-        
+
         self.labels = torch.tensor(
             np.random.choice(config.num_classes, num_patients, p=probs)
         ).long()
-        
+
         # Simulated image features
         self.images = torch.randn(num_patients, config.image_dim)
-        
+
         # Add class-specific patterns
         for i in range(num_patients):
             label = self.labels[i].item()
             self.images[i, label * 100:(label + 1) * 100] += 2.0
-        
+
         # Hospital-specific noise pattern
         self.images += torch.randn(1, config.image_dim) * 0.1 * hospital_id
 
@@ -204,7 +204,7 @@ class MedicalCNN(nn.Module):
             nn.Linear(256, 128),
             nn.ReLU(),
         )
-        
+
         self.classifier = nn.Sequential(
             nn.Linear(128, 64),
             nn.ReLU(),
@@ -241,19 +241,19 @@ class DifferentialPrivacy:
             if param.grad is not None:
                 total_norm += param.grad.data.norm(2).item() ** 2
         total_norm = total_norm ** 0.5
-        
+
         clip_coef = self.max_grad_norm / (total_norm + 1e-6)
         if clip_coef < 1:
             for param in model.parameters():
                 if param.grad is not None:
                     param.grad.data.mul_(clip_coef)
-        
+
         return total_norm
 
     def add_noise(self, model: nn.Module, num_samples: int) -> None:
         """Add Gaussian noise for DP."""
         sigma = self.max_grad_norm * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 noise = torch.randn_like(param.grad) * sigma / num_samples
@@ -307,10 +307,10 @@ class ComplianceAudit:
         report = "# HIPAA Compliance Audit Report\n\n"
         report += f"Report Generated: {datetime.now().isoformat()}\n\n"
         report += f"Total Events: {len(self.entries)}\n"
-        
+
         phi_events = sum(1 for e in self.entries if e["phi_accessed"])
         report += f"PHI Access Events: {phi_events}\n"
-        
+
         return report
 ```
 
@@ -373,11 +373,11 @@ class HospitalClient:
                 outputs = local_model(images)
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
-                
+
                 # Apply DP
                 self.dp.clip_gradients(local_model)
                 self.dp.add_noise(local_model, len(images))
-                
+
                 optimizer.step()
                 total_loss += loss.item()
                 num_batches += 1
@@ -403,30 +403,30 @@ class HospitalClient:
         """Evaluate model on local data."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=64)
-        
+
         correct = 0
         total = 0
         class_correct = [0] * self.config.num_classes
         class_total = [0] * self.config.num_classes
-        
+
         with torch.no_grad():
             for images, labels in loader:
                 outputs = model(images)
                 preds = outputs.argmax(dim=1)
                 correct += (preds == labels).sum().item()
                 total += len(labels)
-                
+
                 for i in range(len(labels)):
                     label = labels[i].item()
                     class_total[label] += 1
                     if preds[i] == labels[i]:
                         class_correct[label] += 1
-        
+
         per_class_acc = [
             c / t if t > 0 else 0
             for c, t in zip(class_correct, class_total)
         ]
-        
+
         return {
             "accuracy": correct / total if total > 0 else 0,
             "per_class_accuracy": per_class_acc,
@@ -468,19 +468,19 @@ class HealthcareFLCoordinator:
     def aggregate(self, updates: List[Dict]) -> None:
         """Aggregate with fairness consideration (q-FedAvg)."""
         q = self.config.fairness_q
-        
+
         # Compute weights based on loss (higher loss = higher weight)
         losses = np.array([u["loss"] for u in updates])
         weights = np.power(losses, q)
         weights = weights / weights.sum()
-        
+
         new_state = {}
         for name in self.model.state_dict():
             new_state[name] = sum(
                 w * u["state_dict"][name].float()
                 for w, u in zip(weights, updates)
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> List[Dict]:
@@ -493,7 +493,7 @@ class HealthcareFLCoordinator:
 
         for round_num in range(self.config.num_rounds):
             selected = self.select_hospitals()
-            
+
             # Collect updates
             updates = []
             for hospital in selected:
@@ -503,15 +503,15 @@ class HealthcareFLCoordinator:
 
             if len(updates) >= self.config.min_hospitals_per_round:
                 self.aggregate(updates)
-            
+
             # Evaluate fairness
             losses = [u["loss"] for u in updates]
             fairness = self.fairness.compute_disparity(losses)
-            
+
             # Evaluate accuracy
             metrics = [h.evaluate(self.model) for h in self.hospitals]
             avg_acc = np.mean([m["accuracy"] for m in metrics])
-            
+
             self.history.append({
                 "round": round_num,
                 "hospitals": len(updates),

@@ -203,7 +203,7 @@ def get_model_outputs(
     """Get model predictions and confidences."""
     model.eval()
     loader = DataLoader(data, batch_size=128)
-    
+
     all_probs = []
     all_labels = []
     all_losses = []
@@ -213,7 +213,7 @@ def get_model_outputs(
             logits = model(features)
             probs = F.softmax(logits, dim=1)
             losses = F.cross_entropy(logits, labels, reduction='none')
-            
+
             all_probs.append(probs.numpy())
             all_labels.append(labels.numpy())
             all_losses.append(losses.numpy())
@@ -245,7 +245,7 @@ class ThresholdAttack:
             np.ones(len(member_losses)),
             np.zeros(len(non_member_losses)),
         ])
-        
+
         # Find threshold that maximizes accuracy
         best_acc = 0
         for t in np.percentile(all_losses, range(1, 100)):
@@ -284,15 +284,15 @@ class ShadowModelAttack:
         # Features: prediction probability, confidence, loss, correctness
         n = len(labels)
         features = []
-        
+
         for i in range(n):
             prob = probs[i]
             label = labels[i]
             loss = losses[i]
-            
+
             # Sorted probabilities
             sorted_probs = np.sort(prob)[::-1]
-            
+
             feat = [
                 prob[label],  # Confidence on true class
                 sorted_probs[0],  # Max confidence
@@ -301,7 +301,7 @@ class ShadowModelAttack:
                 np.entropy(prob),  # Prediction entropy
             ]
             features.append(feat)
-        
+
         return np.array(features)
 
     def train_shadow_models(
@@ -314,7 +314,7 @@ class ShadowModelAttack:
         all_labels = []  # 1 = member, 0 = non-member
 
         n = len(data)
-        
+
         for i in range(self.num_shadow_models):
             # Sample train/test split
             indices = np.random.permutation(n)
@@ -352,14 +352,14 @@ class ShadowModelAttack:
     ) -> None:
         """Train the attack model."""
         X, y = self.train_shadow_models(data, config)
-        
+
         # Train attack classifier
         self.attack_model = nn.Sequential(
             nn.Linear(5, 32),
             nn.ReLU(),
             nn.Linear(32, 2),
         )
-        
+
         optimizer = torch.optim.Adam(self.attack_model.parameters(), lr=0.01)
         X_tensor = torch.FloatTensor(X)
         y_tensor = torch.LongTensor(y.astype(int))
@@ -379,11 +379,11 @@ class ShadowModelAttack:
         """Predict membership."""
         features = self.extract_features(probs, labels, losses)
         X = torch.FloatTensor(features)
-        
+
         self.attack_model.eval()
         with torch.no_grad():
             preds = self.attack_model(X).argmax(1).numpy()
-        
+
         return preds
 ```
 
@@ -426,19 +426,19 @@ def run_mia_experiment() -> dict:
     # Evaluate threshold attack
     threshold_attack = ThresholdAttack()
     threshold_attack.fit(member_losses, nonmember_losses)
-    
+
     member_preds = threshold_attack.predict(member_losses)
     nonmember_preds = threshold_attack.predict(nonmember_losses)
-    
+
     threshold_acc = (member_preds.sum() + (1 - nonmember_preds).sum()) / (len(member_preds) + len(nonmember_preds))
 
     # Evaluate shadow model attack
     shadow_attack = ShadowModelAttack(num_classes=num_classes)
     shadow_attack.fit(full_dataset, config)
-    
+
     member_preds = shadow_attack.predict(member_probs, member_labels, member_losses)
     nonmember_preds = shadow_attack.predict(nonmember_probs, nonmember_labels, nonmember_losses)
-    
+
     shadow_acc = (member_preds.sum() + (1 - nonmember_preds).sum()) / (len(member_preds) + len(nonmember_preds))
 
     print(f"Threshold Attack Accuracy: {threshold_acc:.4f}")

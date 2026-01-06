@@ -147,10 +147,10 @@ flowchart TB
     IID_GEN --> MEASURE
     NONIID_GEN --> MEASURE
     MEASURE --> VISUALIZE
-    
+
     IID_GEN --> TRAIN_IID
     NONIID_GEN --> TRAIN_NONIID
-    
+
     TRAIN_IID --> CONV
     TRAIN_NONIID --> CONV
     CONV --> ACC --> FAIR
@@ -187,7 +187,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
 
-@dataclass 
+@dataclass
 class DistributionConfig:
     """Configuration for data distribution experiments."""
     num_clients: int = 10
@@ -524,7 +524,7 @@ class HeterogeneityAnalyzer:
     ) -> float:
         """Compute average Earth Mover's Distance."""
         global_dist, client_dists = self._get_distributions(client_data)
-        
+
         distances = []
         for client_dist in client_dists:
             emd = stats.wasserstein_distance(
@@ -532,7 +532,7 @@ class HeterogeneityAnalyzer:
                 client_dist, global_dist
             )
             distances.append(emd)
-        
+
         return float(np.mean(distances))
 
     def kl_divergence(
@@ -541,7 +541,7 @@ class HeterogeneityAnalyzer:
     ) -> float:
         """Compute average KL divergence."""
         global_dist, client_dists = self._get_distributions(client_data)
-        
+
         kl_divs = []
         for client_dist in client_dists:
             # Add small epsilon to avoid log(0)
@@ -549,7 +549,7 @@ class HeterogeneityAnalyzer:
             q = np.maximum(global_dist, 1e-10)
             kl = np.sum(p * np.log(p / q))
             kl_divs.append(kl)
-        
+
         return float(np.mean(kl_divs))
 
     def js_divergence(
@@ -558,19 +558,19 @@ class HeterogeneityAnalyzer:
     ) -> float:
         """Compute average Jensen-Shannon divergence."""
         global_dist, client_dists = self._get_distributions(client_data)
-        
+
         js_divs = []
         for client_dist in client_dists:
             m = 0.5 * (client_dist + global_dist)
             p = np.maximum(client_dist, 1e-10)
             q = np.maximum(global_dist, 1e-10)
             m = np.maximum(m, 1e-10)
-            
+
             kl_pm = np.sum(p * np.log(p / m))
             kl_qm = np.sum(q * np.log(q / m))
             js = 0.5 * (kl_pm + kl_qm)
             js_divs.append(js)
-        
+
         return float(np.mean(js_divs))
 
     def total_variation(
@@ -579,12 +579,12 @@ class HeterogeneityAnalyzer:
     ) -> float:
         """Compute average total variation distance."""
         global_dist, client_dists = self._get_distributions(client_data)
-        
+
         tv_dists = []
         for client_dist in client_dists:
             tv = 0.5 * np.sum(np.abs(client_dist - global_dist))
             tv_dists.append(tv)
-        
+
         return float(np.mean(tv_dists))
 
     def class_coverage(
@@ -596,7 +596,7 @@ class HeterogeneityAnalyzer:
         for _, labels in client_data:
             unique = len(np.unique(labels))
             coverages.append(unique / self.num_classes)
-        
+
         return float(np.mean(coverages))
 
     def quantity_imbalance(

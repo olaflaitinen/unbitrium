@@ -9,23 +9,24 @@ License: EUPL-1.2
 
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
+from unbitrium.metrics.heterogeneity import (
+    compute_emd,
+    compute_label_entropy,
+)
 from unbitrium.partitioning import (
     DirichletPartitioner,
+    EntropyControlledPartitioner,
     MoDMPartitioner,
     QuantitySkewPartitioner,
-    EntropyControlledPartitioner,
-)
-from unbitrium.metrics.heterogeneity import (
-    compute_label_entropy,
-    compute_emd,
-    compute_js_divergence,
 )
 
 
-def generate_labels(num_samples: int = 1000, num_classes: int = 10, seed: int = 42) -> np.ndarray:
+def generate_labels(
+    num_samples: int = 1000, num_classes: int = 10, seed: int = 42
+) -> np.ndarray:
     """Generate balanced label distribution."""
     np.random.seed(seed)
     return np.random.randint(0, num_classes, num_samples)
@@ -69,14 +70,18 @@ def main() -> None:
     # Strategy 1: Dirichlet with varying alpha
     print("=== Dirichlet Partitioning ===")
     for alpha in [0.1, 0.5, 1.0, 10.0]:
-        partitioner = DirichletPartitioner(num_clients=num_clients, alpha=alpha, seed=42)
+        partitioner = DirichletPartitioner(
+            num_clients=num_clients, alpha=alpha, seed=42
+        )
         client_indices = partitioner.partition(labels)
 
         entropy = compute_label_entropy(labels, client_indices)
         emd = compute_emd(labels, client_indices)
 
         print(f"Alpha={alpha}: Entropy={entropy:.4f}, EMD={emd:.4f}")
-        visualize_partition(labels, client_indices, f"Dirichlet alpha={alpha}", num_classes)
+        visualize_partition(
+            labels, client_indices, f"Dirichlet alpha={alpha}", num_classes
+        )
 
     # Strategy 2: Mixture-of-Dirichlet-Multinomials
     print("\n=== MoDM Partitioning ===")

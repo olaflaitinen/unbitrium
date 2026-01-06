@@ -67,7 +67,7 @@ where = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py312', 'py313', 'py314']
+target-version = ['py312', 'py313']
 
 [tool.isort]
 profile = "black"
@@ -80,4 +80,3 @@ warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = false
 check_untyped_defs = true
-

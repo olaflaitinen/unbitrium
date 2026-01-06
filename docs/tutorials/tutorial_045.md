@@ -149,17 +149,17 @@ class SimpleEnvironment:
     def step(self, action: int) -> tuple[np.ndarray, float, bool]:
         """Take action and return (state, reward, done)."""
         self.steps += 1
-        
+
         # Simple dynamics
         direction = 1 if action == 1 else -1
         self.state = self.state + direction * 0.1 * self.difficulty
-        
+
         # Reward based on state norm
         reward = -np.abs(self.state).mean()
-        
+
         # Done if state too large or steps exceeded
         done = np.abs(self.state).max() > 5 or self.steps >= 200
-        
+
         return self.state.copy(), reward, done
 
 
@@ -209,34 +209,34 @@ class FRLAgent:
     ) -> list[dict]:
         """Collect trajectories using policy."""
         trajectories = []
-        
+
         for _ in range(num_episodes):
             states = []
             actions = []
             rewards = []
             log_probs = []
-            
+
             state = self.env.reset()
             done = False
-            
+
             while not done:
                 action, log_prob = policy.select_action(state)
                 next_state, reward, done = self.env.step(action)
-                
+
                 states.append(state)
                 actions.append(action)
                 rewards.append(reward)
                 log_probs.append(log_prob)
-                
+
                 state = next_state
-            
+
             trajectories.append({
                 "states": states,
                 "actions": actions,
                 "rewards": rewards,
                 "log_probs": log_probs,
             })
-        
+
         return trajectories
 
     def compute_returns(self, rewards: list[float]) -> list[float]:
@@ -265,19 +265,19 @@ class FRLAgent:
         # Compute policy gradient
         total_loss = 0.0
         total_reward = 0.0
-        
+
         for traj in trajectories:
             returns = self.compute_returns(traj["rewards"])
             returns = torch.FloatTensor(returns)
             returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-            
+
             log_probs = torch.stack(traj["log_probs"])
             loss = -(log_probs * returns).mean()
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             total_loss += loss.item()
             total_reward += sum(traj["rewards"])
 
@@ -313,13 +313,13 @@ class FRLServer:
         """Aggregate policy updates."""
         n = len(updates)
         new_state = {}
-        
+
         for key in self.policy.state_dict():
             new_state[key] = sum(
                 u["state_dict"][key].float() / n
                 for u in updates
             )
-        
+
         self.policy.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -328,7 +328,7 @@ class FRLServer:
             self.aggregate(updates)
 
             avg_reward = np.mean([u["avg_reward"] for u in updates])
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_reward": avg_reward,
@@ -346,7 +346,7 @@ def simulate_federated_rl() -> dict:
     torch.manual_seed(42)
 
     config = FRLConfig()
-    
+
     # Create agents with different environments
     agents = []
     for i in range(config.num_agents):

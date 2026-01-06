@@ -142,12 +142,12 @@ class SimpleCNN(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            
+
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            
+
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
@@ -206,11 +206,11 @@ class CVClient:
 
     def train(self, model: nn.Module) -> dict:
         local_model = copy.deepcopy(model)
-        
+
         # Restore local BN params if using FedBN
         if self.config.use_fedbn and self.local_bn_params is not None:
             local_model.set_bn_params(self.local_bn_params)
-        
+
         optimizer = torch.optim.SGD(
             local_model.parameters(),
             lr=self.config.learning_rate,
@@ -252,7 +252,7 @@ class CVClient:
         if self.config.use_fedbn and self.local_bn_params is not None:
             model = copy.deepcopy(model)
             model.set_bn_params(self.local_bn_params)
-        
+
         model.eval()
         loader = DataLoader(self.dataset, batch_size=128)
         correct = 0
@@ -292,7 +292,7 @@ class FedCVServer:
         """Aggregate excluding BN running stats if FedBN."""
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             # Skip BN running stats if using FedBN
             if self.config.use_fedbn and ("running_mean" in key or "running_var" in key or "num_batches" in key):
@@ -302,7 +302,7 @@ class FedCVServer:
                     (u["num_samples"] / total) * u["state_dict"][key].float()
                     for u in updates
                 )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -312,7 +312,7 @@ class FedCVServer:
 
             # Evaluate
             accs = [c.evaluate(self.model)["accuracy"] for c in self.clients]
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_accuracy": np.mean(accs),
@@ -335,7 +335,7 @@ def generate_synthetic_images(
     """Generate synthetic image data."""
     images = np.random.randn(num_samples, num_channels, image_size, image_size).astype(np.float32)
     labels = np.random.randint(0, num_classes, num_samples)
-    
+
     # Add class-specific patterns
     for i in range(num_samples):
         label = labels[i]
@@ -343,7 +343,7 @@ def generate_synthetic_images(
         images[i] += class_shift
         # Add class-specific pattern
         images[i, :, :4, :4] += label * 0.5
-    
+
     return images, labels
 
 
@@ -353,7 +353,7 @@ def simulate_federated_cv() -> dict:
     torch.manual_seed(42)
 
     config = FedCVConfig()
-    
+
     # Create client datasets with different distributions
     client_datasets = []
     for i in range(config.num_clients):

@@ -179,7 +179,7 @@ class BackdoorTrigger:
     def apply(self, x: torch.Tensor) -> torch.Tensor:
         """Apply trigger to input."""
         triggered = x.clone()
-        
+
         if self.trigger_pattern == "square":
             # Add trigger to first 'trigger_size' features
             triggered[:self.trigger_size] = self.trigger_value
@@ -189,7 +189,7 @@ class BackdoorTrigger:
             indices = torch.randperm(len(triggered))[:self.trigger_size]
             mask[indices] = self.trigger_value
             triggered = triggered + mask
-        
+
         return triggered
 
     def poison_dataset(
@@ -201,17 +201,17 @@ class BackdoorTrigger:
         """Create poisoned version of dataset."""
         n = len(dataset)
         num_poison = int(n * poison_ratio)
-        
+
         features = dataset.features.clone()
         labels = dataset.labels.clone()
-        
+
         # Select samples to poison
         poison_indices = np.random.choice(n, num_poison, replace=False)
-        
+
         for idx in poison_indices:
             features[idx] = self.apply(features[idx])
             labels[idx] = target_class
-        
+
         return SimpleDataset(features.numpy(), labels.numpy())
 
 
@@ -237,12 +237,12 @@ class ModelReplacementAttack:
         # Compute: (target - global) * n / k
         # Where n = total clients, k = attackers
         scale = num_clients / num_attackers
-        
+
         update = {}
         for name, param in target_model.named_parameters():
             global_param = global_model.state_dict()[name]
             update[name] = (param.data - global_param) * scale
-        
+
         return update
 ```
 
@@ -345,7 +345,7 @@ class BackdoorAttacker:
                 x = self.original_dataset.features[i]
                 triggered_x = self.trigger.apply(x)
                 pred = model(triggered_x.unsqueeze(0)).argmax(1).item()
-                
+
                 if pred == self.config.target_class:
                     correct += 1
                 total += 1
@@ -379,19 +379,19 @@ class PoisoningFLServer:
         """Simple averaging (vulnerable to attacks)."""
         result = {}
         n = len(updates)
-        
+
         for name in updates[0].keys():
             result[name] = sum(u[name] for u in updates) / n
-        
+
         return result
 
     def train_round(self, round_num: int) -> dict:
         # Collect updates from all clients
         updates = []
-        
+
         for client in self.honest_clients:
             updates.append(client.train(self.model))
-        
+
         for attacker in self.attackers:
             updates.append(attacker.train(self.model))
 

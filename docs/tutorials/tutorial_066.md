@@ -160,15 +160,15 @@ class DeviceProfile:
     compute_mflops: int
     battery_mah: int
     bandwidth_kbps: int
-    
+
     @classmethod
     def microcontroller(cls) -> 'DeviceProfile':
         return cls(DeviceType.MICROCONTROLLER, 512, 100, 500, 100)
-    
+
     @classmethod
     def edge_soc(cls) -> 'DeviceProfile':
         return cls(DeviceType.EDGE_SOC, 4096, 5000, 5000, 10000)
-    
+
     @classmethod
     def mobile(cls) -> 'DeviceProfile':
         return cls(DeviceType.MOBILE, 8192, 50000, 4000, 50000)
@@ -203,7 +203,7 @@ class EdgeDataset(Dataset):
         np.random.seed(device_id)
         self.features = torch.randn(num_samples, input_dim)
         self.labels = torch.randint(0, num_classes, (num_samples,))
-        
+
         # Add device-specific bias
         bias = device_id * 0.1
         self.features += bias
@@ -218,7 +218,7 @@ class EdgeDataset(Dataset):
 class TinyMLModel(nn.Module):
     """
     Tiny model designed for microcontrollers.
-    
+
     Target: <100KB model size
     """
 
@@ -241,7 +241,7 @@ class TinyMLModel(nn.Module):
 class CompactModel(nn.Module):
     """
     Compact model for edge SoCs.
-    
+
     Target: <1MB model size
     """
 
@@ -265,7 +265,7 @@ class CompactModel(nn.Module):
 class MobileModel(nn.Module):
     """
     Mobile-optimized model.
-    
+
     Uses depthwise separable convolutions pattern (simplified).
     """
 
@@ -291,7 +291,7 @@ class MobileModel(nn.Module):
 class ModelQuantizer:
     """
     Simple quantization utilities.
-    
+
     Supports INT8 quantization for reduced model size.
     """
 
@@ -303,7 +303,7 @@ class ModelQuantizer:
         min_val = tensor.min().item()
         max_val = tensor.max().item()
         scale = (max_val - min_val) / 255.0 if max_val != min_val else 1.0
-        
+
         quantized = ((tensor - min_val) / scale).round().clamp(0, 255).byte()
         return quantized, scale, min_val
 
@@ -322,7 +322,7 @@ class ModelQuantizer:
     ) -> Dict[str, Any]:
         """Quantize entire model state dict."""
         quantized_state = {}
-        
+
         for name, param in state_dict.items():
             q_param, scale, min_val = ModelQuantizer.quantize_to_int8(param)
             quantized_state[name] = {
@@ -330,7 +330,7 @@ class ModelQuantizer:
                 "scale": scale,
                 "min_val": min_val,
             }
-        
+
         return quantized_state
 
     @staticmethod
@@ -339,14 +339,14 @@ class ModelQuantizer:
     ) -> Dict[str, torch.Tensor]:
         """Dequantize model state dict."""
         state_dict = {}
-        
+
         for name, q_data in quantized_state.items():
             state_dict[name] = ModelQuantizer.dequantize_from_int8(
                 q_data["data"],
                 q_data["scale"],
                 q_data["min_val"],
             )
-        
+
         return state_dict
 ```
 
@@ -356,7 +356,7 @@ class ModelQuantizer:
 class ModelPruner:
     """
     Model pruning utilities.
-    
+
     Supports magnitude-based weight pruning.
     """
 
@@ -379,7 +379,7 @@ class ModelPruner:
         """Prune model weights."""
         pruned_state = {}
         masks = {}
-        
+
         for name, param in state_dict.items():
             if "weight" in name:
                 mask = ModelPruner.create_mask(param, prune_ratio)
@@ -387,7 +387,7 @@ class ModelPruner:
                 masks[name] = mask
             else:
                 pruned_state[name] = param
-        
+
         return pruned_state, masks
 
     @staticmethod
@@ -395,19 +395,19 @@ class ModelPruner:
         """Calculate model sparsity."""
         total = 0
         zeros = 0
-        
+
         for name, param in state_dict.items():
             if "weight" in name:
                 total += param.numel()
                 zeros += (param == 0).sum().item()
-        
+
         return zeros / total if total > 0 else 0.0
 
 
 class EdgeDevice:
     """
     Simulated edge device.
-    
+
     Handles resource constraints and training.
     """
 
@@ -444,11 +444,11 @@ class EdgeDevice:
         """Train model on local data."""
         if not self.is_available:
             return None
-        
+
         if not self.can_run_model(model):
             print(f"Device {self.device_id}: Model too large")
             return None
-        
+
         local_model = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local_model.parameters(),
@@ -471,7 +471,7 @@ class EdgeDevice:
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
 
@@ -479,13 +479,13 @@ class EdgeDevice:
 
         # Apply compression
         state_dict = local_model.state_dict()
-        
+
         if self.config.prune_ratio > 0:
             state_dict, _ = ModelPruner.prune_state_dict(
                 state_dict,
                 self.config.prune_ratio,
             )
-        
+
         result = {
             "state_dict": {k: v.cpu() for k, v in state_dict.items()},
             "num_samples": self.num_samples,
@@ -493,29 +493,29 @@ class EdgeDevice:
             "loss": total_loss / num_batches if num_batches > 0 else 0,
             "battery": self.battery_level,
         }
-        
+
         if self.config.quantize:
             result["quantized_state"] = ModelQuantizer.quantize_model_state(
                 result["state_dict"]
             )
-        
+
         return result
 
     def evaluate(self, model: nn.Module) -> Dict[str, float]:
         """Evaluate model on local data."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=32)
-        
+
         correct = 0
         total = 0
-        
+
         with torch.no_grad():
             for features, labels in loader:
                 outputs = model(features)
                 preds = outputs.argmax(dim=1)
                 correct += (preds == labels).sum().item()
                 total += len(labels)
-        
+
         return {"accuracy": correct / total if total > 0 else 0.0}
 ```
 
@@ -525,7 +525,7 @@ class EdgeDevice:
 class EdgeFLServer:
     """
     Server for edge FL.
-    
+
     Handles device selection and aggregation.
     """
 
@@ -546,10 +546,10 @@ class EdgeFLServer:
     def select_devices(self) -> List[EdgeDevice]:
         """Select available devices for this round."""
         available = [d for d in self.devices if d.is_available]
-        
+
         # Prioritize devices with higher battery
         available.sort(key=lambda d: d.battery_level, reverse=True)
-        
+
         # Select up to 50% of available devices
         num_select = max(1, len(available) // 2)
         return available[:num_select]
@@ -558,44 +558,44 @@ class EdgeFLServer:
         """Aggregate model updates."""
         if not updates:
             return
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for name in self.model.state_dict():
             new_state[name] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][name].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> List[Dict]:
         """Run federated training."""
         print(f"Model size: {self.model.get_size_kb():.2f} KB")
-        
+
         for round_num in range(self.config.num_rounds):
             selected = self.select_devices()
-            
+
             if not selected:
                 print(f"Round {round_num + 1}: No available devices")
                 continue
-            
+
             # Train on selected devices
             updates = []
             for device in selected:
                 update = device.train(self.model)
                 if update is not None:
                     updates.append(update)
-            
+
             # Aggregate
             self.aggregate(updates)
-            
+
             # Evaluate
             metrics = [d.evaluate(self.model) for d in self.devices if d.is_available]
             avg_acc = np.mean([m["accuracy"] for m in metrics]) if metrics else 0
             avg_battery = np.mean([d.battery_level for d in self.devices])
-            
+
             self.history.append({
                 "round": round_num,
                 "devices_trained": len(updates),
@@ -615,7 +615,7 @@ def simulate_edge_fl() -> Dict:
     torch.manual_seed(42)
 
     config = EdgeFLConfig()
-    
+
     # Create devices with varying profiles
     devices = []
     for i in range(config.num_devices):
@@ -625,7 +625,7 @@ def simulate_edge_fl() -> Dict:
             profile = DeviceProfile.edge_soc()
         else:
             profile = DeviceProfile.mobile()
-        
+
         num_samples = np.random.randint(20, 80)
         dataset = EdgeDataset(
             num_samples,
@@ -637,7 +637,7 @@ def simulate_edge_fl() -> Dict:
 
     # Use compact model (fits on all devices)
     model = CompactModel(config.input_dim, config.num_classes)
-    
+
     server = EdgeFLServer(model, devices, config)
     history = server.train()
 

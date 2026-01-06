@@ -130,11 +130,11 @@ class TimeSeriesDataset(Dataset):
         self.data = torch.FloatTensor(data)
         self.seq_len = seq_len
         self.pred_len = pred_len
-        
+
         # Create sequences
         self.sequences = []
         self.targets = []
-        
+
         for i in range(len(data) - seq_len - pred_len):
             self.sequences.append(data[i:i + seq_len])
             self.targets.append(data[i + seq_len:i + seq_len + pred_len])
@@ -162,7 +162,7 @@ class LSTMForecaster(nn.Module):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
-        
+
         self.lstm = nn.LSTM(
             input_dim,
             hidden_dim,
@@ -198,7 +198,7 @@ class TransformerForecaster(nn.Module):
         super().__init__()
         self.embedding = nn.Linear(input_dim, hidden_dim)
         self.pos_encoding = nn.Parameter(torch.randn(1, seq_len, hidden_dim))
-        
+
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=num_heads,
@@ -254,18 +254,18 @@ class FedTSClient:
                 # Reshape for model input
                 if sequences.dim() == 2:
                     sequences = sequences.unsqueeze(-1)
-                
+
                 optimizer.zero_grad()
                 predictions = local_model(sequences)
-                
+
                 # Flatten targets if needed
                 if targets.dim() == 2:
                     targets = targets.squeeze(-1)
-                
+
                 loss = F.mse_loss(predictions, targets)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
 
@@ -289,7 +289,7 @@ class FedTSClient:
                     sequences = sequences.unsqueeze(-1)
                 if targets.dim() == 2:
                     targets = targets.squeeze(-1)
-                
+
                 predictions = model(sequences)
                 total_mse += F.mse_loss(predictions, targets, reduction='sum').item()
                 total_mae += (predictions - targets).abs().sum().item()
@@ -324,13 +324,13 @@ class FedTSServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -340,7 +340,7 @@ class FedTSServer:
 
             metrics = [c.evaluate(self.model) for c in self.clients]
             avg_mse = np.mean([m["mse"] for m in metrics])
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_mse": avg_mse,
@@ -373,7 +373,7 @@ def simulate_federated_ts() -> dict:
     torch.manual_seed(42)
 
     config = FedTSConfig()
-    
+
     # Create client datasets with different patterns
     clients = []
     for i in range(config.num_clients):

@@ -69,7 +69,7 @@ graph TB
     end
 
     INPUT --> ENCODER --> LATENT --> DECODER --> OUTPUT
-    
+
     subgraph "Detection"
         ERROR[Reconstruction Error]
         THRESHOLD[Threshold]
@@ -192,7 +192,7 @@ class VariationalAutoencoder(nn.Module):
         )
         self.fc_mu = nn.Linear(32, latent_dim)
         self.fc_var = nn.Linear(32, latent_dim)
-        
+
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 32),
             nn.ReLU(),
@@ -292,7 +292,7 @@ class FedADClient:
         """Evaluate anomaly detection."""
         model.eval()
         loader = DataLoader(self.dataset, batch_size=256)
-        
+
         all_errors = []
         all_labels = []
 
@@ -304,10 +304,10 @@ class FedADClient:
 
         errors = np.array(all_errors)
         labels = np.array(all_labels)
-        
+
         # Use local threshold
         predictions = (errors > self.threshold).astype(int)
-        
+
         # Metrics
         tp = ((predictions == 1) & (labels == 1)).sum()
         fp = ((predictions == 1) & (labels == 0)).sum()
@@ -349,13 +349,13 @@ class FedADServer:
     def aggregate(self, updates: list[dict]) -> None:
         total = sum(u["num_samples"] for u in updates)
         new_state = {}
-        
+
         for key in self.model.state_dict():
             new_state[key] = sum(
                 (u["num_samples"] / total) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         self.model.load_state_dict(new_state)
 
     def train(self) -> list[dict]:
@@ -365,7 +365,7 @@ class FedADServer:
 
             metrics = [c.evaluate(self.model) for c in self.clients]
             avg_f1 = np.mean([m["f1"] for m in metrics])
-            
+
             self.history.append({
                 "round": round_num,
                 "avg_f1": avg_f1,
@@ -386,10 +386,10 @@ def generate_anomaly_data(
     """Generate anomaly detection data."""
     normal = np.random.randn(num_normal, feature_dim).astype(np.float32)
     anomaly = np.random.randn(num_anomaly, feature_dim).astype(np.float32) + anomaly_shift
-    
+
     features = np.vstack([normal, anomaly])
     labels = np.concatenate([np.zeros(num_normal), np.ones(num_anomaly)])
-    
+
     return features, labels
 
 
@@ -398,7 +398,7 @@ def simulate_federated_ad() -> dict:
     torch.manual_seed(42)
 
     config = FedADConfig()
-    
+
     clients = []
     for i in range(config.num_clients):
         features, labels = generate_anomaly_data(

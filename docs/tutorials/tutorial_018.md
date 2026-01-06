@@ -238,13 +238,13 @@ class ControlVariate:
         """Compute control variate update from model difference."""
         cv = ControlVariate.__new__(ControlVariate)
         cv.state = {}
-        
+
         for key in theta_old:
             cv.state[key] = (
                 c_old.state[key] - c.state[key] +
                 (theta_old[key] - theta_new[key]) / (K * lr)
             )
-        
+
         return cv
 ```
 
@@ -286,7 +286,7 @@ class SCAFFOLDClient:
 
         # Store initial model state
         theta_init = {k: v.clone() for k, v in model.state_dict().items()}
-        
+
         # Local model
         local_model = copy.deepcopy(model).to(self.device)
         c = server_cv.to(self.device)
@@ -296,7 +296,7 @@ class SCAFFOLDClient:
             local_model.parameters(),
             lr=self.config.learning_rate,
         )
-        
+
         dataloader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
@@ -424,7 +424,7 @@ class SCAFFOLDServer:
         """Aggregate model updates and control variates."""
         # Model aggregation (simple average for SCAFFOLD)
         num_updates = len(updates)
-        
+
         global_state = self.model.state_dict()
         new_state = {}
 

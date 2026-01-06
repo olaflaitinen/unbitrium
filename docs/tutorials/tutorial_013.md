@@ -227,7 +227,7 @@ class FedAvgAggregator(Aggregator):
     ) -> AggregationResult:
         """Aggregate using weighted averaging."""
         updates = self.validate_updates(updates)
-        
+
         if not updates:
             raise ValueError("No valid updates to aggregate")
 
@@ -245,7 +245,7 @@ class FedAvgAggregator(Aggregator):
                 u["state_dict"][key].float()
                 for u in updates
             ])
-            
+
             # Weighted average
             weight_tensor = torch.tensor(weights, dtype=torch.float32)
             weight_tensor = weight_tensor.view(-1, *([1] * (stacked.dim() - 1)))
@@ -271,7 +271,7 @@ class MedianAggregator(Aggregator):
     ) -> AggregationResult:
         """Aggregate using coordinate-wise median."""
         updates = self.validate_updates(updates)
-        
+
         if not updates:
             raise ValueError("No valid updates to aggregate")
 
@@ -284,7 +284,7 @@ class MedianAggregator(Aggregator):
                 u["state_dict"][key].float()
                 for u in updates
             ])
-            
+
             # Coordinate-wise median
             aggregated_state[key] = torch.median(stacked, dim=0).values
 
@@ -313,13 +313,13 @@ class TrimmedMeanAggregator(Aggregator):
     ) -> AggregationResult:
         """Aggregate using trimmed mean."""
         updates = self.validate_updates(updates)
-        
+
         if not updates:
             raise ValueError("No valid updates to aggregate")
 
         n = len(updates)
         k = int(n * self.trim_ratio)  # Number to trim from each end
-        
+
         if 2 * k >= n:
             k = max(0, n // 2 - 1)
 
@@ -332,7 +332,7 @@ class TrimmedMeanAggregator(Aggregator):
                 u["state_dict"][key].float()
                 for u in updates
             ])
-            
+
             if k > 0:
                 # Sort and trim
                 sorted_vals, _ = torch.sort(stacked, dim=0)
@@ -370,20 +370,20 @@ class KrumAggregator(Aggregator):
     ) -> AggregationResult:
         """Aggregate using Krum selection."""
         updates = self.validate_updates(updates)
-        
+
         if not updates:
             raise ValueError("No valid updates to aggregate")
 
         n = len(updates)
         f = self.num_byzantine
-        
+
         # Need at least 2f + 3 clients
         if n < 2 * f + 3:
             f = max(0, (n - 3) // 2)
 
         # Flatten all updates
         flattened = [self._flatten_state(u["state_dict"]) for u in updates]
-        
+
         # Compute pairwise distances
         distances = torch.zeros((n, n))
         for i in range(n):
@@ -402,7 +402,7 @@ class KrumAggregator(Aggregator):
 
         # Select update with minimum score
         selected_idx = np.argmin(scores)
-        
+
         total_samples = sum(u["num_samples"] for u in updates)
 
         return AggregationResult(
@@ -429,7 +429,7 @@ class MultiKrumAggregator(KrumAggregator):
     ) -> AggregationResult:
         """Aggregate using Multi-Krum."""
         updates = self.validate_updates(updates)
-        
+
         if not updates:
             raise ValueError("No valid updates to aggregate")
 
@@ -439,7 +439,7 @@ class MultiKrumAggregator(KrumAggregator):
 
         # Compute Krum scores (same as parent)
         flattened = [self._flatten_state(u["state_dict"]) for u in updates]
-        
+
         distances = torch.zeros((n, n))
         for i in range(n):
             for j in range(i + 1, n):
@@ -482,10 +482,10 @@ class BulyanAggregator(Aggregator):
         # First, select n - 2f clients using Multi-Krum
         num_select = max(1, n - 2 * f)
         multi_krum = MultiKrumAggregator(f, num_select)
-        
+
         # Get flattened for selection
         krum_result = multi_krum.aggregate(updates)
-        
+
         # Then apply trimmed mean on selected
         trimmed = TrimmedMeanAggregator(trim_ratio=0.25)
         return trimmed.aggregate(updates[:num_select])
@@ -506,9 +506,9 @@ def compare_aggregators(
     feature_dim = 32
     hidden_dim = 64
     num_classes = 10
-    
+
     updates = []
-    
+
     for i in range(num_clients):
         state_dict = {
             "layer1.weight": torch.randn(hidden_dim, feature_dim),
@@ -516,12 +516,12 @@ def compare_aggregators(
             "layer2.weight": torch.randn(num_classes, hidden_dim),
             "layer2.bias": torch.randn(num_classes),
         }
-        
+
         # Add byzantine attack to some clients
         if i < num_byzantine:
             for key in state_dict:
                 state_dict[key] = state_dict[key] * 100  # Scale attack
-        
+
         updates.append({
             "state_dict": state_dict,
             "num_samples": np.random.randint(50, 200),
@@ -538,7 +538,7 @@ def compare_aggregators(
     }
 
     results = {}
-    
+
     # Ground truth: average of honest clients
     honest_updates = updates[num_byzantine:]
     ground_truth = FedAvgAggregator().aggregate(honest_updates)
@@ -547,16 +547,16 @@ def compare_aggregators(
     for name, aggregator in aggregators.items():
         result = aggregator.aggregate(updates)
         agg_flat = torch.cat([v.flatten() for v in result.state_dict.values()])
-        
+
         # Distance from ground truth
         distance = (agg_flat - gt_flat).norm().item()
-        
+
         results[name] = {
             "distance_from_truth": distance,
             "num_clients": result.num_clients,
             "metrics": result.metrics,
         }
-        
+
         print(f"{name}: distance={distance:.4f}")
 
     return results

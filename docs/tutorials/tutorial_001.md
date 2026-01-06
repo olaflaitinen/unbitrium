@@ -111,12 +111,12 @@ graph TB
     D1 --> T1 --> M1
     D2 --> T2 --> M2
     DK --> TK --> MK
-    
+
     M1 --> AGG
     M2 --> AGG
     MK --> AGG
     AGG --> GM
-    
+
     GM --> M1
     GM --> M2
     GM --> MK
@@ -177,15 +177,15 @@ flowchart TB
     C1_DATA --> C1_TRAIN
     C2_DATA --> C2_TRAIN
     CN_DATA --> CN_TRAIN
-    
+
     C1_TRAIN --> UPLOAD
     C2_TRAIN --> UPLOAD
     CN_TRAIN --> UPLOAD
-    
+
     UPLOAD --> AGGREGATE --> GLOBAL
     GLOBAL --> EVAL
     GLOBAL --> DOWNLOAD
-    
+
     DOWNLOAD --> C1_TRAIN
     DOWNLOAD --> C2_TRAIN
     DOWNLOAD --> CN_TRAIN
@@ -297,7 +297,7 @@ def create_non_iid_data(
             class_mean = np.zeros(feature_dim)
             class_mean[label % feature_dim] = 2.0
             class_mean[(label * 3) % feature_dim] = 1.5
-            
+
             # Add noise
             features[i] = class_mean + np.random.randn(feature_dim) * 0.5
 
@@ -696,11 +696,11 @@ def experiment_participation():
     """Experiment with different participation rates."""
     fractions = [0.1, 0.3, 0.5, 1.0]
     results = {}
-    
+
     for frac in fractions:
         # Your implementation here
         pass
-    
+
     return results
 ```
 

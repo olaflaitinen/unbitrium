@@ -98,7 +98,7 @@ graph LR
     G --> C1
     G --> C2
     G --> C3
-    
+
     C1 --> D1[Drift ε_1]
     C2 --> D2[Drift ε_2]
     C3 --> D3[Drift ε_3]
@@ -116,7 +116,7 @@ flowchart TB
         RECEIVE[Receive Global Model]
         COPY[Deep Copy Model]
         SETUP[Setup Optimizer]
-        
+
         subgraph "Epoch Loop"
             BATCH[Get Mini-Batch]
             FORWARD[Forward Pass]
@@ -124,7 +124,7 @@ flowchart TB
             BACKWARD[Backward Pass]
             UPDATE[Update Weights]
         end
-        
+
         METRICS[Compute Metrics]
         RETURN[Return Update]
     end
@@ -229,7 +229,7 @@ class LocalTrainer:
     ) -> None:
         self.config = config
         self.device = device or torch.device("cpu")
-        
+
         # Mixed precision scaler
         self.scaler = None
         if config.use_mixed_precision and torch.cuda.is_available():
@@ -285,7 +285,7 @@ class LocalTrainer:
                 with torch.cuda.amp.autocast():
                     outputs = model(features)
                     loss = F.cross_entropy(outputs, labels)
-                
+
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(optimizer)
                 grad_norm = self.clip_gradients(model)
@@ -331,7 +331,7 @@ class LocalTrainer:
         """
         # Deep copy model to avoid modifying original
         local_model = copy.deepcopy(model).to(self.device)
-        
+
         if initial_state is not None:
             local_model.load_state_dict(initial_state)
 
@@ -342,7 +342,7 @@ class LocalTrainer:
             shuffle=True,
             drop_last=False,
         )
-        
+
         optimizer = self.create_optimizer(local_model)
         metrics = TrainingMetrics()
 
@@ -491,7 +491,7 @@ class OptimizedLocalTrainer(LocalTrainer):
         # Adjust batch size if needed
         sample = dataset[0][0]
         optimal_batch = self.estimate_batch_size(model, sample)
-        
+
         if optimal_batch < self.config.batch_size:
             self.config.batch_size = optimal_batch
 
@@ -511,7 +511,7 @@ def analyze_local_training_impact(
 
     for local_epochs in local_epochs_list:
         print(f"\nTraining with E={local_epochs} local epochs")
-        
+
         config = LocalTrainingConfig(
             local_epochs=local_epochs,
             batch_size=32,
@@ -522,7 +522,7 @@ def analyze_local_training_impact(
         np.random.seed(42)
         feature_dim = 32
         num_classes = 10
-        
+
         # Create model
         model = nn.Sequential(
             nn.Linear(feature_dim, 64),
@@ -533,7 +533,7 @@ def analyze_local_training_impact(
         # Create clients
         trainer = LocalTrainer(config)
         clients = []
-        
+
         for i in range(num_clients):
             n_samples = np.random.randint(50, 200)
             features = np.random.randn(n_samples, feature_dim).astype(np.float32)
@@ -543,7 +543,7 @@ def analyze_local_training_impact(
 
         # Training loop
         accuracies = []
-        
+
         for round_num in range(num_rounds):
             global_state = model.state_dict()
             updates = []
@@ -582,7 +582,7 @@ def analyze_local_training_impact(
 
 if __name__ == "__main__":
     results = analyze_local_training_impact()
-    
+
     print("\nSummary:")
     for name, data in results.items():
         print(f"{name}: final_acc={data['final_accuracy']:.4f}, "

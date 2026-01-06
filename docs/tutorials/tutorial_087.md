@@ -147,7 +147,7 @@ class MomentumType(Enum):
 @dataclass
 class MomentumConfig:
     """Configuration for momentum FL."""
-    
+
     # General
     num_rounds: int = 100
     num_clients: int = 20
@@ -155,29 +155,29 @@ class MomentumConfig:
     local_epochs: int = 5
     batch_size: int = 32
     seed: int = 42
-    
+
     # Learning rates
     client_lr: float = 0.01
     server_lr: float = 1.0
-    
+
     # Momentum
     momentum_type: MomentumType = MomentumType.SERVER
     server_momentum: float = 0.9
     client_momentum: float = 0.9
     nesterov: bool = False
-    
+
     # Model
     input_dim: int = 32
     hidden_dim: int = 128
     num_classes: int = 10
-    
+
     # Data heterogeneity
     alpha: float = 0.5  # Dirichlet parameter
 
 
 class MomentumDataset(Dataset):
     """Non-IID dataset for momentum experiments."""
-    
+
     def __init__(
         self,
         features: np.ndarray,
@@ -187,17 +187,17 @@ class MomentumDataset(Dataset):
         self.features = torch.FloatTensor(features)
         self.labels = torch.LongTensor(labels)
         self.client_id = client_id
-    
+
     def __len__(self) -> int:
         return len(self.labels)
-    
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.features[idx], self.labels[idx]
 
 
 class MomentumModel(nn.Module):
     """Model for momentum experiments."""
-    
+
     def __init__(self, config: MomentumConfig):
         super().__init__()
         self.network = nn.Sequential(
@@ -207,7 +207,7 @@ class MomentumModel(nn.Module):
             nn.ReLU(),
             nn.Linear(config.hidden_dim // 2, config.num_classes),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
 
@@ -217,31 +217,31 @@ def create_non_iid_data(
 ) -> Tuple[List[MomentumDataset], MomentumDataset]:
     """Create non-IID data using Dirichlet distribution."""
     np.random.seed(config.seed)
-    
+
     # Generate base data
     n_train = config.num_clients * 100
     n_test = 500
-    
+
     train_features = np.random.randn(n_train, config.input_dim).astype(np.float32)
     train_labels = np.random.randint(0, config.num_classes, n_train)
-    
+
     # Add class-specific patterns
     for i in range(n_train):
         train_features[i, train_labels[i] % config.input_dim] += 2.0
-    
+
     # Dirichlet partitioning
     label_distributions = np.random.dirichlet(
         [config.alpha] * config.num_classes,
         config.num_clients
     )
-    
+
     # Organize by class
     class_indices = {c: np.where(train_labels == c)[0] for c in range(config.num_classes)}
-    
+
     client_datasets = []
     for client_id in range(config.num_clients):
         client_indices = []
-        
+
         for c in range(config.num_classes):
             n_class = int(label_distributions[client_id, c] * 100)
             if n_class > 0 and len(class_indices[c]) > 0:
@@ -251,22 +251,22 @@ def create_non_iid_data(
                     replace=True
                 )
                 client_indices.extend(selected.tolist())
-        
+
         if len(client_indices) > 0:
             client_datasets.append(MomentumDataset(
                 train_features[client_indices],
                 train_labels[client_indices],
                 client_id
             ))
-    
+
     # Test data
     test_features = np.random.randn(n_test, config.input_dim).astype(np.float32)
     test_labels = np.random.randint(0, config.num_classes, n_test)
     for i in range(n_test):
         test_features[i, test_labels[i] % config.input_dim] += 2.0
-    
+
     test_dataset = MomentumDataset(test_features, test_labels, -1)
-    
+
     return client_datasets, test_dataset
 ```
 
@@ -275,7 +275,7 @@ def create_non_iid_data(
 ```python
 class MomentumClient:
     """FL client with optional client-side momentum."""
-    
+
     def __init__(
         self,
         client_id: int,
@@ -285,24 +285,24 @@ class MomentumClient:
         self.client_id = client_id
         self.dataset = dataset
         self.config = config
-        
+
         # Client-side momentum buffer (persists across rounds)
         self.momentum_buffer: Dict[str, torch.Tensor] = {}
-    
+
     @property
     def num_samples(self) -> int:
         return len(self.dataset)
-    
+
     def _use_client_momentum(self) -> bool:
         return self.config.momentum_type in [
             MomentumType.CLIENT,
             MomentumType.BOTH
         ]
-    
+
     def train(self, model: nn.Module) -> Dict[str, Any]:
         """Train locally with optional momentum."""
         local_model = copy.deepcopy(model)
-        
+
         # Choose optimizer based on momentum setting
         if self._use_client_momentum():
             optimizer = torch.optim.SGD(
@@ -316,17 +316,17 @@ class MomentumClient:
                 local_model.parameters(),
                 lr=self.config.client_lr,
             )
-        
+
         loader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=True,
         )
-        
+
         local_model.train()
         total_loss = 0
         num_batches = 0
-        
+
         for _ in range(self.config.local_epochs):
             for features, labels in loader:
                 optimizer.zero_grad()
@@ -334,10 +334,10 @@ class MomentumClient:
                 loss = F.cross_entropy(outputs, labels)
                 loss.backward()
                 optimizer.step()
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         return {
             "state_dict": {k: v.cpu() for k, v in local_model.state_dict().items()},
             "num_samples": self.num_samples,
@@ -347,7 +347,7 @@ class MomentumClient:
 
 class MomentumServer:
     """FL server with server-side momentum (FedAvgM)."""
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -360,30 +360,30 @@ class MomentumServer:
         self.test_dataset = test_dataset
         self.config = config
         self.history: List[Dict] = []
-        
+
         # Server momentum buffer
         self.momentum_buffer: Dict[str, torch.Tensor] = {}
         self._initialize_momentum_buffer()
-    
+
     def _initialize_momentum_buffer(self) -> None:
         """Initialize momentum buffer to zeros."""
         for name, param in self.model.named_parameters():
             self.momentum_buffer[name] = torch.zeros_like(param)
-    
+
     def _use_server_momentum(self) -> bool:
         return self.config.momentum_type in [
             MomentumType.SERVER,
             MomentumType.BOTH,
             MomentumType.NESTEROV_SERVER,
         ]
-    
+
     def _use_nesterov(self) -> bool:
         return self.config.momentum_type == MomentumType.NESTEROV_SERVER
-    
+
     def aggregate_with_momentum(self, updates: List[Dict]) -> None:
         """Aggregate updates with server-side momentum."""
         total_samples = sum(u["num_samples"] for u in updates)
-        
+
         # Compute pseudo-gradient (difference from global model)
         pseudo_gradient = {}
         for name, param in self.model.named_parameters():
@@ -394,7 +394,7 @@ class MomentumServer:
             )
             # Pseudo-gradient is current - aggregated (pointing towards aggregated)
             pseudo_gradient[name] = param.data - aggregated
-        
+
         # Apply momentum
         if self._use_server_momentum():
             for name, param in self.model.named_parameters():
@@ -403,7 +403,7 @@ class MomentumServer:
                     self.config.server_momentum * self.momentum_buffer[name] +
                     pseudo_gradient[name]
                 )
-                
+
                 # Nesterov look-ahead
                 if self._use_nesterov():
                     look_ahead = (
@@ -421,25 +421,25 @@ class MomentumServer:
                     for u in updates
                 )
                 param.data.copy_(aggregated)
-    
+
     def evaluate(self) -> Tuple[float, float]:
         """Evaluate global model."""
         self.model.eval()
         loader = DataLoader(self.test_dataset, batch_size=128)
-        
+
         correct, total, total_loss = 0, 0, 0.0
         with torch.no_grad():
             for features, labels in loader:
                 outputs = self.model(features)
                 loss = F.cross_entropy(outputs, labels)
                 preds = outputs.argmax(dim=1)
-                
+
                 correct += (preds == labels).sum().item()
                 total += len(labels)
                 total_loss += loss.item() * len(labels)
-        
+
         return correct / total, total_loss / total
-    
+
     def train(self) -> List[Dict]:
         """Run FL training with momentum."""
         for round_num in range(self.config.num_rounds):
@@ -449,61 +449,61 @@ class MomentumServer:
                 min(self.config.clients_per_round, len(self.clients)),
                 replace=False,
             )
-            
+
             # Collect updates
             updates = [c.train(self.model) for c in selected]
-            
+
             # Aggregate with momentum
             self.aggregate_with_momentum(updates)
-            
+
             # Evaluate
             acc, loss = self.evaluate()
             avg_client_loss = np.mean([u["loss"] for u in updates])
-            
+
             self.history.append({
                 "round": round_num,
                 "accuracy": acc,
                 "loss": loss,
                 "client_loss": avg_client_loss,
             })
-            
+
             if (round_num + 1) % 10 == 0:
                 print(f"Round {round_num + 1}: acc={acc:.4f}, loss={loss:.4f}")
-        
+
         return self.history
 
 
 def compare_momentum_strategies():
     """Compare different momentum strategies."""
     results = {}
-    
+
     for momentum_type in [MomentumType.NONE, MomentumType.SERVER, MomentumType.BOTH]:
         config = MomentumConfig(
             num_rounds=50,
             num_clients=10,
             momentum_type=momentum_type,
         )
-        
+
         torch.manual_seed(config.seed)
         np.random.seed(config.seed)
-        
+
         client_datasets, test_dataset = create_non_iid_data(config)
         clients = [
             MomentumClient(i, dataset, config)
             for i, dataset in enumerate(client_datasets)
         ]
-        
+
         model = MomentumModel(config)
         server = MomentumServer(model, clients, test_dataset, config)
-        
+
         print(f"\n=== {momentum_type.value} ===")
         history = server.train()
-        
+
         results[momentum_type.value] = {
             "final_accuracy": history[-1]["accuracy"],
             "best_accuracy": max(h["accuracy"] for h in history),
         }
-    
+
     print("\n=== Summary ===")
     for name, metrics in results.items():
         print(f"{name}: final={metrics['final_accuracy']:.4f}, "

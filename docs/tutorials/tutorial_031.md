@@ -219,7 +219,7 @@ class Scheduler:
             c for c in self.clients.values()
             if c.available
         ]
-        
+
         if self.strategy == "random":
             selected = np.random.choice(
                 [c.client_id for c in available],
@@ -236,11 +236,11 @@ class Scheduler:
             selected = [c.client_id for c in available[:num_clients]]
         else:
             selected = [c.client_id for c in available[:num_clients]]
-        
+
         # Update client state
         for cid in selected:
             self.clients[cid].last_round = round_num
-        
+
         return selected
 
 
@@ -287,7 +287,7 @@ class FLServer:
         self.scheduler = Scheduler(clients_info, "random")
         self.model_store = ModelStore()
         self.history: list[RoundResult] = []
-        
+
         # Save initial model
         self.model_store.save(model.state_dict())
 
@@ -301,13 +301,13 @@ class FLServer:
         """Weighted aggregation."""
         total_samples = sum(u["num_samples"] for u in updates)
         result = {}
-        
+
         for key in self.model.state_dict():
             result[key] = sum(
                 (u["num_samples"] / total_samples) * u["state_dict"][key].float()
                 for u in updates
             )
-        
+
         return result
 
     def _apply_update(self, aggregated: dict):
@@ -325,16 +325,16 @@ class FLServer:
     ) -> RoundResult:
         """Synchronous round execution."""
         start_time = time.time()
-        
+
         # Select clients
         selected = self.scheduler.select_clients(
             self.config.clients_per_round, round_num
         )
-        
+
         # Collect updates
         updates = []
         dropouts = 0
-        
+
         for client_id in selected:
             try:
                 update = train_fn(client_id, self.model)
@@ -349,7 +349,7 @@ class FLServer:
             self.model_store.save(self.model.state_dict())
 
         duration = time.time() - start_time
-        
+
         return RoundResult(
             round_num=round_num,
             participating_clients=selected,
@@ -366,11 +366,11 @@ class FLServer:
     ) -> RoundResult:
         """Asynchronous round execution."""
         start_time = time.time()
-        
+
         selected = self.scheduler.select_clients(
             self.config.clients_per_round, round_num
         )
-        
+
         # Create tasks
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as executor:
@@ -378,10 +378,10 @@ class FLServer:
                 executor.submit(train_fn, cid, self.model): cid
                 for cid in selected
             }
-            
+
             updates = []
             dropouts = 0
-            
+
             for future in as_completed(
                 futures, timeout=self.config.timeout_seconds
             ):
@@ -397,7 +397,7 @@ class FLServer:
             self.model_store.save(self.model.state_dict())
 
         duration = time.time() - start_time
-        
+
         return RoundResult(
             round_num=round_num,
             participating_clients=selected,
@@ -427,7 +427,7 @@ class FLClient:
         """Local training with simulated delays."""
         # Simulate compute time
         time.sleep(self.compute_delay)
-        
+
         local_model = copy.deepcopy(model)
         optimizer = torch.optim.SGD(
             local_model.parameters(),
