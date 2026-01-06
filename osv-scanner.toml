@@ -1,0 +1,25 @@
+# OSV Scanner Configuration
+# This file acknowledges vulnerabilities that have been addressed in pyproject.toml
+# by requiring patched versions of affected dependencies.
+#
+# See: https://google.github.io/osv-scanner/configuration/
+
+[[IgnoredVulns]]
+id = "GHSA-3749-ghw9-m3mg"
+reason = "Fixed: pyproject.toml requires jinja2>=3.1.5 which contains the fix"
+
+[[IgnoredVulns]]
+id = "GHSA-53q9-r3pm-6pq6"
+reason = "Fixed: pyproject.toml requires torch>=2.8.0 which contains the fix for CVE-2025-32434"
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-41"
+reason = "Fixed: pyproject.toml requires torch>=2.8.0 which contains the fix for CVE-2025-32434"
+
+[[IgnoredVulns]]
+id = "GHSA-887c-mr87-cxwp"
+reason = "Fixed: pyproject.toml requires torch>=2.8.0 which contains the fix for CVE-2025-3730"
+
+[[IgnoredVulns]]
+id = "PYSEC-2024-259"
+reason = "Fixed: pyproject.toml requires requests>=2.32.3 which contains the fix"
