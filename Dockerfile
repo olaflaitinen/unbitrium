@@ -2,7 +2,6 @@
 # Unbitrium Dockerfile
 # =============================================================================
 # Multi-stage build for production-ready container image.
-# All base images pinned by SHA256 hash for reproducibility and security.
 #
 # Build:
 #   docker build -t unbitrium:latest .
@@ -16,8 +15,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Builder
 # -----------------------------------------------------------------------------
-# python:3.12-slim pinned to specific digest
-FROM python:3.12-slim@sha256:5dc6f84b5e97bfb0c90abfead7a29d8a2e9f9ea3ee77d0b3bc4a2c7c7c1f6c43 AS builder
+FROM python:3.12-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -40,14 +38,13 @@ WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-# Install package - using virtual environment isolation
-# Note: pip packages are installed from PyPI with integrity verification
+# Install package
 RUN pip install .
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim@sha256:5dc6f84b5e97bfb0c90abfead7a29d8a2e9f9ea3ee77d0b3bc4a2c7c7c1f6c43 AS runtime
+FROM python:3.12-slim AS runtime
 
 # Labels
 LABEL org.opencontainers.image.title="Unbitrium" \
@@ -105,8 +102,7 @@ CMD ["pytest", "-v"]
 # -----------------------------------------------------------------------------
 # Stage 4: GPU Runtime (optional)
 # -----------------------------------------------------------------------------
-# nvidia/cuda:12.1.1-runtime-ubuntu22.04 pinned to specific digest
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04@sha256:bf1e47d5e4c0c92cac3587143b247a7c3e0a3b2e87a9d5ec6aabae3cbbd59c2b AS gpu
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS gpu
 
 # Labels
 LABEL org.opencontainers.image.title="Unbitrium GPU" \
