@@ -15,7 +15,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Builder
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim as builder
+FROM python:3.14-slim as builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -45,7 +45,7 @@ RUN pip install --upgrade pip setuptools wheel && \
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim as runtime
+FROM python:3.14-slim as runtime
 
 # Labels
 LABEL org.opencontainers.image.title="Unbitrium" \
