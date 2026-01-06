@@ -74,11 +74,11 @@ jobs:
           tool: "pytest"
           output-file-path: benchmark-results.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
+          auto-push: false
+          skip-fetch-gh-pages: true
           alert-threshold: "150%"
-          comment-on-alert: true
+          comment-on-alert: false
           fail-on-alert: false
-          alert-comment-cc-users: "@olaflaitinen"
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
