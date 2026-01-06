@@ -1,17 +1,18 @@
-
 import os
 import sys
+
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from unbitrium.aggregators.fedavg import FedAvg
 from unbitrium.partitioning.quantity_skew import QuantitySkewPowerLaw
-from unbitrium.simulation.simulator import FederatedSimulator
 from unbitrium.simulation.network import NetworkConfig
+from unbitrium.simulation.simulator import FederatedSimulator
+
 
 # Dummy Dataset
 class DummyDataset(Dataset):
@@ -26,6 +27,7 @@ class DummyDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
 
+
 # Dummy Model
 class SimpleModel(nn.Module):
     def __init__(self):
@@ -34,6 +36,7 @@ class SimpleModel(nn.Module):
 
     def forward(self, x):
         return self.fc(x)
+
 
 def test_smoke_simulation():
     print("Running Smoke Test...")
@@ -44,7 +47,7 @@ def test_smoke_simulation():
     test_dataset = DummyDataset(size=50)
 
     # Partition
-    partitioner = QuantitySkewPowerLaw(num_clients=num_clients, gamma=0.5)
+    QuantitySkewPowerLaw(num_clients=num_clients, gamma=0.5)
     # Mocking partitioners internal _get_targets which expects dataset to have 'targets' or 'labels' or 'y'
     # Our DummyDataset has .targets.
     # But Partitioner Base might need implementation details.
@@ -55,8 +58,10 @@ def test_smoke_simulation():
     # But since I cannot easily see base.py, I will manually partition for this smoke test to isolate Simulator.
 
     # Manual Partitioning
-    indices = {i: list(range(i*20, (i+1)*20)) for i in range(num_clients)}
-    client_datasets = {i: torch.utils.data.Subset(dataset, idxs) for i, idxs in indices.items()}
+    indices = {i: list(range(i * 20, (i + 1) * 20)) for i in range(num_clients)}
+    client_datasets = {
+        i: torch.utils.data.Subset(dataset, idxs) for i, idxs in indices.items()
+    }
 
     model = SimpleModel()
     aggregator = FedAvg()
@@ -70,7 +75,7 @@ def test_smoke_simulation():
         num_rounds=2,
         clients_per_round=2,
         epochs_per_round=1,
-        network_config=net_config
+        network_config=net_config,
     )
 
     history = sim.run()
@@ -78,6 +83,7 @@ def test_smoke_simulation():
     assert len(history) == 2
     assert "test_acc" in history[0]
     print("Smoke Test Passed!")
+
 
 if __name__ == "__main__":
     test_smoke_simulation()

@@ -79,9 +79,7 @@ class Krum(Aggregator):
             return self._simple_average(updates, current_global_model)
 
         # Flatten all updates
-        flat_updates = [
-            self._flatten_state_dict(u["state_dict"]) for u in updates
-        ]
+        flat_updates = [self._flatten_state_dict(u["state_dict"]) for u in updates]
 
         # Compute pairwise distances
         distances = torch.zeros(num_clients, num_clients)

@@ -63,7 +63,7 @@ class FeatureShiftPartitioner(Partitioner):
         if features.ndim == 1:
             features = features.reshape(-1, 1)
 
-        num_samples = len(features)
+        len(features)
         rng = np.random.default_rng(self.seed)
 
         # Simple k-means clustering

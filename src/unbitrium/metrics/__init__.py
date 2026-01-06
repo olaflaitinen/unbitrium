@@ -9,17 +9,17 @@ License: EUPL-1.2
 
 from __future__ import annotations
 
-from unbitrium.metrics.heterogeneity import (
-    compute_gradient_variance,
-    compute_drift_norm,
-    compute_imbalance_ratio,
-    compute_label_entropy,
-    compute_emd,
-    compute_js_divergence,
-    compute_nmi,
-)
 from unbitrium.metrics.distribution import compute_distribution_metrics
 from unbitrium.metrics.fairness import compute_fairness_metrics
+from unbitrium.metrics.heterogeneity import (
+    compute_drift_norm,
+    compute_emd,
+    compute_gradient_variance,
+    compute_imbalance_ratio,
+    compute_js_divergence,
+    compute_label_entropy,
+    compute_nmi,
+)
 from unbitrium.metrics.privacy import compute_privacy_metrics
 
 __all__ = [

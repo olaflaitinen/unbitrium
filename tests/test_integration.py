@@ -12,14 +12,14 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from unbitrium import (
+    BenchmarkConfig,
+    BenchmarkRunner,
+    DirichletPartitioner,
     FedAvg,
     FedSim,
-    DirichletPartitioner,
-    compute_label_entropy,
     compute_emd,
+    compute_label_entropy,
     set_global_seed,
-    BenchmarkRunner,
-    BenchmarkConfig,
 )
 
 
@@ -86,10 +86,14 @@ class TestEndToEndWorkflow:
                 loss.backward()
                 optimizer.step()
 
-            updates.append({
-                "state_dict": {k: v.clone() for k, v in local_model.state_dict().items()},
-                "num_samples": len(indices),
-            })
+            updates.append(
+                {
+                    "state_dict": {
+                        k: v.clone() for k, v in local_model.state_dict().items()
+                    },
+                    "num_samples": len(indices),
+                }
+            )
 
         # Aggregate
         new_model, metrics = aggregator.aggregate(updates, global_model)
@@ -120,7 +124,10 @@ class TestAggregatorComparison:
         model = SimpleModel()
         updates = []
         for i in range(5):
-            state = {k: v.clone() + torch.randn_like(v) * 0.1 for k, v in model.state_dict().items()}
+            state = {
+                k: v.clone() + torch.randn_like(v) * 0.1
+                for k, v in model.state_dict().items()
+            }
             updates.append({"state_dict": state, "num_samples": 100})
 
         # FedAvg

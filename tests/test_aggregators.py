@@ -11,13 +11,13 @@ import torch
 import torch.nn as nn
 
 from unbitrium.aggregators import (
+    FedAdam,
     FedAvg,
+    FedDyn,
     FedProx,
     FedSim,
-    PFedSim,
-    FedDyn,
-    FedAdam,
     Krum,
+    PFedSim,
     TrimmedMean,
 )
 
@@ -37,7 +37,10 @@ def create_updates(num_clients: int, model: nn.Module) -> list[dict]:
     """Create mock client updates."""
     updates = []
     for i in range(num_clients):
-        state = {k: v.clone() + torch.randn_like(v) * 0.1 for k, v in model.state_dict().items()}
+        state = {
+            k: v.clone() + torch.randn_like(v) * 0.1
+            for k, v in model.state_dict().items()
+        }
         updates.append({"state_dict": state, "num_samples": 100 + i * 10})
     return updates
 
@@ -166,12 +169,14 @@ class TestFedCM:
     def test_init(self) -> None:
         """Test FedCM initialization."""
         from unbitrium.aggregators import FedCM
+
         agg = FedCM(beta=0.9)
         assert agg.beta == 0.9
 
     def test_aggregate(self) -> None:
         """Test FedCM aggregation."""
         from unbitrium.aggregators import FedCM
+
         agg = FedCM(beta=0.9)
         model = SimpleModel()
         updates = create_updates(3, model)
@@ -182,6 +187,7 @@ class TestFedCM:
     def test_momentum_accumulation(self) -> None:
         """Test momentum accumulates across rounds."""
         from unbitrium.aggregators import FedCM
+
         agg = FedCM(beta=0.9)
         model = SimpleModel()
 
@@ -200,6 +206,7 @@ class TestAFL_DCS:
     def test_init(self) -> None:
         """Test AFL-DCS initialization."""
         from unbitrium.aggregators import AFL_DCS
+
         agg = AFL_DCS(max_staleness=5, staleness_decay=0.9)
         assert agg.max_staleness == 5
         assert agg.staleness_decay == 0.9
@@ -207,6 +214,7 @@ class TestAFL_DCS:
     def test_aggregate(self) -> None:
         """Test AFL-DCS aggregation."""
         from unbitrium.aggregators import AFL_DCS
+
         agg = AFL_DCS()
         model = SimpleModel()
         updates = create_updates(5, model)
@@ -216,17 +224,20 @@ class TestAFL_DCS:
     def test_staleness_filtering(self) -> None:
         """Test stale updates are filtered."""
         from unbitrium.aggregators import AFL_DCS
+
         agg = AFL_DCS(max_staleness=2)
         model = SimpleModel()
 
         updates = []
         for i in range(5):
             state = {k: v.clone() for k, v in model.state_dict().items()}
-            updates.append({
-                "state_dict": state,
-                "num_samples": 100,
-                "round": agg._global_round - i - 5  # Very stale
-            })
+            updates.append(
+                {
+                    "state_dict": state,
+                    "num_samples": 100,
+                    "round": agg._global_round - i - 5,  # Very stale
+                }
+            )
 
         result, metrics = agg.aggregate(updates, model)
         # Stale updates should be filtered

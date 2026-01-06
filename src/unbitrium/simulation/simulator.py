@@ -10,17 +10,17 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
-from unbitrium.simulation.client import Client
-from unbitrium.simulation.server import Server
-from unbitrium.simulation.network import Network
 from unbitrium.aggregators.base import Aggregator
 from unbitrium.aggregators.fedavg import FedAvg
 from unbitrium.partitioning.base import Partitioner
 from unbitrium.partitioning.dirichlet import DirichletPartitioner
+from unbitrium.simulation.client import Client
+from unbitrium.simulation.network import Network
+from unbitrium.simulation.server import Server
 
 
 class Simulator:
@@ -75,7 +75,9 @@ class Simulator:
         self.dataset = dataset
         self.num_clients = num_clients
         self.aggregator = aggregator or FedAvg()
-        self.partitioner = partitioner or DirichletPartitioner(num_clients, alpha=0.5, seed=seed)
+        self.partitioner = partitioner or DirichletPartitioner(
+            num_clients, alpha=0.5, seed=seed
+        )
         self.participation_rate = participation_rate
         self.local_epochs = local_epochs
         self.batch_size = batch_size
@@ -153,7 +155,7 @@ class Simulator:
                 updates.append(update)
 
             # Aggregate
-            metrics = self.server.aggregate(updates)
+            _metrics = self.server.aggregate(updates)  # noqa: F841
             history["num_participants"].append(float(len(updates)))
 
             # Evaluate
@@ -232,7 +234,9 @@ class FederatedSimulator:
                 local_model.load_state_dict(global_state)
 
                 # Local training
-                optimizer = torch.optim.SGD(local_model.parameters(), lr=self.learning_rate)
+                optimizer = torch.optim.SGD(
+                    local_model.parameters(), lr=self.learning_rate
+                )
                 criterion = nn.CrossEntropyLoss()
                 local_model.train()
 
@@ -247,11 +251,15 @@ class FederatedSimulator:
                         loss.backward()
                         optimizer.step()
 
-                updates.append({
-                    "client_id": client_id,
-                    "state_dict": {k: v.clone() for k, v in local_model.state_dict().items()},
-                    "num_samples": len(dataset),
-                })
+                updates.append(
+                    {
+                        "client_id": client_id,
+                        "state_dict": {
+                            k: v.clone() for k, v in local_model.state_dict().items()
+                        },
+                        "num_samples": len(dataset),
+                    }
+                )
 
             # Aggregate updates
             global_state = self.aggregator.aggregate(updates)
@@ -269,11 +277,12 @@ class FederatedSimulator:
                     total += 1
 
             test_acc = correct / total if total > 0 else 0.0
-            history.append({
-                "round": round_idx,
-                "test_acc": test_acc,
-                "num_participants": num_selected,
-            })
+            history.append(
+                {
+                    "round": round_idx,
+                    "test_acc": test_acc,
+                    "num_participants": num_selected,
+                }
+            )
 
         return history
-

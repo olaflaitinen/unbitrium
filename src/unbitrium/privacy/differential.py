@@ -18,7 +18,7 @@ License: EUPL-1.2
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import numpy as np
 
@@ -132,7 +132,7 @@ class DifferentialPrivacy:
             # Compute total L2 norm across all parameters
             total_norm = 0.0
             for key, grad in gradients.items():
-                if hasattr(grad, 'norm'):
+                if hasattr(grad, "norm"):
                     total_norm += grad.norm().item() ** 2
             total_norm = np.sqrt(total_norm)
 
@@ -141,7 +141,7 @@ class DifferentialPrivacy:
             return {key: grad * clip_factor for key, grad in gradients.items()}
         else:
             # Single tensor
-            if hasattr(gradients, 'norm'):
+            if hasattr(gradients, "norm"):
                 norm = gradients.norm().item()
                 clip_factor = min(1.0, self.max_grad_norm / (norm + 1e-8))
                 return gradients * clip_factor
@@ -161,10 +161,11 @@ class DifferentialPrivacy:
         if isinstance(aggregate, dict):
             noisy = {}
             for key, value in aggregate.items():
-                if hasattr(value, 'shape'):
+                if hasattr(value, "shape"):
                     noise = np.random.normal(0, sigma, value.shape)
-                    if hasattr(value, 'numpy'):
+                    if hasattr(value, "numpy"):
                         import torch
+
                         noisy[key] = value + torch.from_numpy(noise).to(value.dtype)
                     else:
                         noisy[key] = value + noise
@@ -172,10 +173,11 @@ class DifferentialPrivacy:
                     noisy[key] = value
             return noisy
         else:
-            if hasattr(aggregate, 'shape'):
+            if hasattr(aggregate, "shape"):
                 noise = np.random.normal(0, sigma, aggregate.shape)
-                if hasattr(aggregate, 'numpy'):
+                if hasattr(aggregate, "numpy"):
                     import torch
+
                     return aggregate + torch.from_numpy(noise).to(aggregate.dtype)
                 return aggregate + noise
             return aggregate

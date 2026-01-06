@@ -90,7 +90,7 @@ class AFL_DCS(Aggregator):
         for update in valid_updates:
             base_weight = update.get("num_samples", 1)
             staleness = update.get("staleness", 0)
-            adjusted_weight = base_weight * (self.staleness_decay ** staleness)
+            adjusted_weight = base_weight * (self.staleness_decay**staleness)
             weights.append(adjusted_weight)
 
         total_weight = sum(weights)
@@ -115,7 +115,9 @@ class AFL_DCS(Aggregator):
 
         current_global_model.load_state_dict(new_state_dict)
 
-        avg_staleness = sum(u.get("staleness", 0) for u in valid_updates) / len(valid_updates)
+        avg_staleness = sum(u.get("staleness", 0) for u in valid_updates) / len(
+            valid_updates
+        )
 
         metrics = {
             "num_participants": float(len(valid_updates)),

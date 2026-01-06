@@ -88,6 +88,7 @@ class ProvenanceTracker:
 
         try:
             import torch
+
             info["torch_version"] = torch.__version__
             info["cuda_available"] = str(torch.cuda.is_available())
             if torch.cuda.is_available():

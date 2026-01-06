@@ -16,6 +16,7 @@ from unbitrium.datasets.registry import DatasetRegistry
 try:
     import torch
     from torchvision import datasets, transforms
+
     _TORCH_AVAILABLE = True
 except ImportError:
     torch = None  # type: ignore
@@ -58,10 +59,12 @@ def load_cifar10(cache_dir: str = "./data") -> Tuple[Any, Any]:
     if not _TORCH_AVAILABLE:
         raise ImportError("PyTorch and torchvision required for CIFAR-10")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)),
+        ]
+    )
 
     train_set = datasets.CIFAR10(
         root=cache_dir, train=True, download=True, transform=transform
@@ -88,10 +91,12 @@ def load_cifar100(cache_dir: str = "./data") -> Tuple[Any, Any]:
     if not _TORCH_AVAILABLE:
         raise ImportError("PyTorch and torchvision required for CIFAR-100")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+        ]
+    )
 
     train_set = datasets.CIFAR100(
         root=cache_dir, train=True, download=True, transform=transform
@@ -118,10 +123,12 @@ def load_mnist(cache_dir: str = "./data") -> Tuple[Any, Any]:
     if not _TORCH_AVAILABLE:
         raise ImportError("PyTorch and torchvision required for MNIST")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]
+    )
 
     train_set = datasets.MNIST(
         root=cache_dir, train=True, download=True, transform=transform
@@ -151,10 +158,12 @@ def load_femnist(cache_dir: str = "./data") -> Tuple[Any, Any]:
     if not _TORCH_AVAILABLE:
         raise ImportError("PyTorch and torchvision required for FEMNIST")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,)),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]
+    )
 
     train_set = datasets.EMNIST(
         root=cache_dir, split="byclass", train=True, download=True, transform=transform

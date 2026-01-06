@@ -3,7 +3,9 @@ Client schedulers.
 """
 
 from typing import List
+
 import numpy as np
+
 
 class ClientScheduler:
     """
@@ -16,4 +18,6 @@ class ClientScheduler:
 
     def select(self, num_to_select: int, round_num: int) -> List[int]:
         """Random selection."""
-        return list(self.rng.choice(self.num_clients, size=num_to_select, replace=False))
+        return list(
+            self.rng.choice(self.num_clients, size=num_to_select, replace=False)
+        )

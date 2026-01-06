@@ -135,7 +135,9 @@ class PFedSim(Aggregator):
             if isinstance(first_state[key], torch.Tensor):
                 if self._is_shared_layer(key):
                     # Aggregate shared layers
-                    weighted_sum = torch.zeros_like(first_state[key], dtype=torch.float32)
+                    weighted_sum = torch.zeros_like(
+                        first_state[key], dtype=torch.float32
+                    )
                     for update, weight in zip(valid_updates, weights):
                         weighted_sum += update["state_dict"][key].float() * weight
                     new_state_dict[key] = weighted_sum.to(first_state[key].dtype)

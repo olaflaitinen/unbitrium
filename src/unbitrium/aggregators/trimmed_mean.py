@@ -73,9 +73,9 @@ class TrimmedMean(Aggregator):
         for key in first_state.keys():
             if isinstance(first_state[key], torch.Tensor):
                 # Stack all client values for this parameter
-                stacked = torch.stack([
-                    u["state_dict"][key].float() for u in updates
-                ], dim=0)
+                stacked = torch.stack(
+                    [u["state_dict"][key].float() for u in updates], dim=0
+                )
 
                 if trim_count > 0 and num_clients > 2 * trim_count:
                     # Sort along client dimension

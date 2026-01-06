@@ -133,9 +133,9 @@ class FedAdam(Aggregator):
 
                 # Update
                 update_step = self.lr * m_hat / (torch.sqrt(v_hat) + self.epsilon)
-                new_state_dict[key] = (
-                    global_state[key].float() + update_step
-                ).to(global_state[key].dtype)
+                new_state_dict[key] = (global_state[key].float() + update_step).to(
+                    global_state[key].dtype
+                )
             else:
                 new_state_dict[key] = global_state[key]
 

@@ -11,10 +11,10 @@ import pytest
 
 from unbitrium.partitioning import (
     DirichletPartitioner,
-    MoDMPartitioner,
-    QuantitySkewPartitioner,
     EntropyControlledPartitioner,
     FeatureShiftPartitioner,
+    MoDMPartitioner,
+    QuantitySkewPartitioner,
 )
 
 

@@ -123,7 +123,9 @@ class SimulationEngine:
             RuntimeError: If simulation encounters an unrecoverable error.
         """
         self.logger.info(f"Starting simulation in {self.config.mode} mode.")
-        self.events.emit(EventType.SIMULATION_START, {"config": self.config.model_dump()})
+        self.events.emit(
+            EventType.SIMULATION_START, {"config": self.config.model_dump()}
+        )
 
         start_time = time.time()
 

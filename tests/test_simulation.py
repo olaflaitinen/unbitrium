@@ -9,11 +9,11 @@ from __future__ import annotations
 import pytest
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, TensorDataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-from unbitrium.simulation.simulator import FederatedSimulator
-from unbitrium.simulation.network import NetworkConfig
 from unbitrium.aggregators import FedAvg
+from unbitrium.simulation.network import NetworkConfig
+from unbitrium.simulation.simulator import FederatedSimulator
 
 
 class SimpleModel(nn.Module):
@@ -232,7 +232,9 @@ class TestModuleExports:
         """Test all expected exports exist."""
         from unbitrium import simulation
 
-        assert hasattr(simulation, "simulator") or hasattr(simulation, "FederatedSimulator")
+        assert hasattr(simulation, "simulator") or hasattr(
+            simulation, "FederatedSimulator"
+        )
 
 
 if __name__ == "__main__":

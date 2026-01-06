@@ -96,10 +96,12 @@ class FedCM(Aggregator):
                 else:
                     corrected_state[key] = value
 
-            corrected_updates.append({
-                "state_dict": corrected_state,
-                "num_samples": update["num_samples"],
-            })
+            corrected_updates.append(
+                {
+                    "state_dict": corrected_state,
+                    "num_samples": update["num_samples"],
+                }
+            )
 
         # Aggregate corrected updates
         new_state_dict: dict[str, torch.Tensor] = {}

@@ -7,15 +7,16 @@ License: EUPL-1.2
 from __future__ import annotations
 
 import logging
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 from unbitrium.core import (
-    setup_logging,
-    set_seed,
-    set_global_seed,
     get_provenance_info,
+    set_global_seed,
+    set_seed,
+    setup_logging,
 )
 
 

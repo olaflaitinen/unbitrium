@@ -36,9 +36,11 @@ class DatasetRegistry:
         Returns:
             Decorator function.
         """
+
         def decorator(loader: Callable[..., Any]) -> Callable[..., Any]:
             cls._registry[name.lower()] = loader
             return loader
+
         return decorator
 
     @classmethod
@@ -57,9 +59,7 @@ class DatasetRegistry:
         """
         if name.lower() not in cls._registry:
             available = ", ".join(cls._registry.keys())
-            raise KeyError(
-                f"Dataset '{name}' not found. Available: {available}"
-            )
+            raise KeyError(f"Dataset '{name}' not found. Available: {available}")
         return cls._registry[name.lower()](**kwargs)
 
     @classmethod

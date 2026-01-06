@@ -8,8 +8,7 @@ License: EUPL-1.2
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -24,6 +23,7 @@ class NetworkConfig:
         packet_loss_rate: Probability of packet loss [0, 1].
         bandwidth_mbps: Bandwidth in Mbps.
     """
+
     latency_mean: float = 100.0
     latency_std: float = 20.0
     packet_loss_rate: float = 0.0

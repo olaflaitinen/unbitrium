@@ -11,14 +11,14 @@ import pytest
 import torch
 
 from unbitrium.metrics import (
-    compute_label_entropy,
-    compute_emd,
-    compute_js_divergence,
-    compute_imbalance_ratio,
-    compute_gradient_variance,
-    compute_drift_norm,
     compute_distribution_metrics,
+    compute_drift_norm,
+    compute_emd,
     compute_fairness_metrics,
+    compute_gradient_variance,
+    compute_imbalance_ratio,
+    compute_js_divergence,
+    compute_label_entropy,
 )
 
 

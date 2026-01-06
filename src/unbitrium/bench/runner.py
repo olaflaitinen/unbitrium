@@ -10,15 +10,14 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from unbitrium.bench.config import BenchmarkConfig
 from unbitrium.aggregators import FedAvg, FedProx, FedSim
-from unbitrium.partitioning import DirichletPartitioner
+from unbitrium.bench.config import BenchmarkConfig
 from unbitrium.core.utils import set_global_seed
+from unbitrium.partitioning import DirichletPartitioner
 
 
 class BenchmarkRunner:
@@ -76,7 +75,9 @@ class BenchmarkRunner:
             agg_factory = self._aggregator_registry[agg_name.lower()]
             aggregator = agg_factory() if callable(agg_factory) else agg_factory
 
-            history = self._run_experiment(X, y, num_classes, client_indices, aggregator)
+            history = self._run_experiment(
+                X, y, num_classes, client_indices, aggregator
+            )
             results[agg_name] = history
 
         return results

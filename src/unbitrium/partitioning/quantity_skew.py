@@ -62,7 +62,7 @@ class QuantitySkewPartitioner(Partitioner):
 
         # Generate power-law proportions
         ranks = np.arange(1, self.num_clients + 1, dtype=np.float64)
-        proportions = 1.0 / (ranks ** self.gamma)
+        proportions = 1.0 / (ranks**self.gamma)
         proportions = proportions / proportions.sum()
 
         # Convert to sample counts
@@ -88,4 +88,3 @@ class QuantitySkewPartitioner(Partitioner):
 
 # Alias for backward compatibility
 QuantitySkewPowerLaw = QuantitySkewPartitioner
-

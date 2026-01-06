@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import pytest
 import torch
-import numpy as np
-from torch.utils.data import Dataset, TensorDataset
+from torch.utils.data import Dataset
 
 from unbitrium.datasets import (
     DatasetRegistry,
-    register_dataset,
     get_dataset,
+    register_dataset,
 )
 
 
@@ -80,6 +79,7 @@ class TestDatasetFunctions:
 
     def test_register_decorator(self) -> None:
         """Test register_dataset decorator."""
+
         @register_dataset("test_decorator")
         def create_ds() -> Dataset:
             return DummyDataset()
@@ -90,6 +90,7 @@ class TestDatasetFunctions:
 
     def test_get_dataset_with_params(self) -> None:
         """Test get_dataset with parameters."""
+
         @register_dataset("test_params")
         def create_ds(size: int = 100) -> Dataset:
             return DummyDataset(size=size)
@@ -138,7 +139,7 @@ class TestStandardDatasets:
         """Test MNIST registration pattern."""
         # Skip if not registered
         try:
-            ds = get_dataset("mnist", download=False)
+            get_dataset("mnist", download=False)
         except (KeyError, FileNotFoundError):
             pytest.skip("MNIST not registered or not downloaded")
 
@@ -152,8 +153,7 @@ class TestDatasetSplitting:
         indices = {0: list(range(50)), 1: list(range(50, 100))}
 
         client_datasets = {
-            i: torch.utils.data.Subset(ds, idx)
-            for i, idx in indices.items()
+            i: torch.utils.data.Subset(ds, idx) for i, idx in indices.items()
         }
 
         assert len(client_datasets) == 2

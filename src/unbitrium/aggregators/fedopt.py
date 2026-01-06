@@ -127,13 +127,15 @@ class FedYogi(FedOpt):
                 self._m[key] = self.beta1 * self._m[key] + (1 - self.beta1) * delta
 
                 # Yogi second moment update
-                delta_sq = delta ** 2
+                delta_sq = delta**2
                 sign = torch.sign(delta_sq - self._v[key])
                 self._v[key] = self._v[key] + (1 - self.beta2) * sign * delta_sq
 
                 # Update
                 update = self.lr * self._m[key] / (torch.sqrt(self._v[key]) + self.tau)
-                new_state[key] = (global_state[key].float() + update).to(global_state[key].dtype)
+                new_state[key] = (global_state[key].float() + update).to(
+                    global_state[key].dtype
+                )
             else:
                 new_state[key] = global_state[key]
 
@@ -159,11 +161,13 @@ class FedAdagrad(FedOpt):
                 delta = avg_update[key] - global_state[key].float()
 
                 # Accumulate squared gradient
-                self._v[key] = self._v[key] + delta ** 2
+                self._v[key] = self._v[key] + delta**2
 
                 # Update
                 update = self.lr * delta / (torch.sqrt(self._v[key]) + self.tau)
-                new_state[key] = (global_state[key].float() + update).to(global_state[key].dtype)
+                new_state[key] = (global_state[key].float() + update).to(
+                    global_state[key].dtype
+                )
             else:
                 new_state[key] = global_state[key]
 

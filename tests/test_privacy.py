@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import pytest
 import torch
-import numpy as np
 
 from unbitrium.privacy import (
     GaussianMechanism,
@@ -119,7 +118,7 @@ class TestGradientClipping:
         clipped = clip_gradients(grads, max_norm=1.0)
 
         # Clipped norm should be <= max_norm
-        total_norm = sum((v ** 2).sum() for v in clipped.values()) ** 0.5
+        total_norm = sum((v**2).sum() for v in clipped.values()) ** 0.5
         assert total_norm <= 1.0 + 1e-5
 
     def test_clip_gradients_preserves_direction(self) -> None:
@@ -143,7 +142,7 @@ class TestGradientClipping:
         clipped = clip_gradients(grads, max_norm=1.0)
 
         assert len(clipped) == 3
-        total_norm = sum((v ** 2).sum() for v in clipped.values()) ** 0.5
+        total_norm = sum((v**2).sum() for v in clipped.values()) ** 0.5
         assert total_norm <= 1.0 + 1e-5
 
     def test_clip_gradients_empty(self) -> None:

@@ -10,8 +10,8 @@ License: EUPL-1.2
 from __future__ import annotations
 
 from unbitrium.simulation.client import Client
-from unbitrium.simulation.server import Server
 from unbitrium.simulation.network import Network
+from unbitrium.simulation.server import Server
 from unbitrium.simulation.simulator import Simulator
 
 __all__ = [

@@ -8,7 +8,7 @@ License: EUPL-1.2
 
 from __future__ import annotations
 
-from unbitrium.datasets.registry import DatasetRegistry, register_dataset, get_dataset
+from unbitrium.datasets.registry import DatasetRegistry, get_dataset, register_dataset
 
 __all__ = [
     "DatasetRegistry",

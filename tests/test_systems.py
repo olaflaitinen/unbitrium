@@ -7,7 +7,6 @@ License: EUPL-1.2
 from __future__ import annotations
 
 import pytest
-import torch
 
 from unbitrium.systems import Device, EnergyModel
 

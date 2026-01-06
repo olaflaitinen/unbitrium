@@ -37,7 +37,9 @@ class BenchmarkConfig:
     local_epochs: int = 1
     batch_size: int = 32
     learning_rate: float = 0.01
-    partitioning: dict[str, Any] = field(default_factory=lambda: {"strategy": "dirichlet", "alpha": 0.5})
+    partitioning: dict[str, Any] = field(
+        default_factory=lambda: {"strategy": "dirichlet", "alpha": 0.5}
+    )
     aggregators: list[str] = field(default_factory=lambda: ["fedavg"])
     metrics: list[str] = field(default_factory=lambda: ["accuracy", "loss"])
     seed: int = 42
@@ -74,14 +76,30 @@ class BenchmarkConfig:
         """
         return cls(
             name=data.get("experiment", {}).get("name", data.get("name", "unnamed")),
-            dataset=data.get("dataset", {}).get("name", data.get("dataset", "synthetic")),
-            num_clients=data.get("clients", {}).get("num_clients", data.get("num_clients", 10)),
-            num_rounds=data.get("training", {}).get("num_rounds", data.get("num_rounds", 10)),
-            local_epochs=data.get("training", {}).get("local_epochs", data.get("local_epochs", 1)),
-            batch_size=data.get("training", {}).get("batch_size", data.get("batch_size", 32)),
-            learning_rate=data.get("training", {}).get("learning_rate", data.get("learning_rate", 0.01)),
-            partitioning=data.get("partitioning", {"strategy": "dirichlet", "alpha": 0.5}),
-            aggregators=data.get("aggregators", [data.get("aggregator", {}).get("name", "fedavg")]),
+            dataset=data.get("dataset", {}).get(
+                "name", data.get("dataset", "synthetic")
+            ),
+            num_clients=data.get("clients", {}).get(
+                "num_clients", data.get("num_clients", 10)
+            ),
+            num_rounds=data.get("training", {}).get(
+                "num_rounds", data.get("num_rounds", 10)
+            ),
+            local_epochs=data.get("training", {}).get(
+                "local_epochs", data.get("local_epochs", 1)
+            ),
+            batch_size=data.get("training", {}).get(
+                "batch_size", data.get("batch_size", 32)
+            ),
+            learning_rate=data.get("training", {}).get(
+                "learning_rate", data.get("learning_rate", 0.01)
+            ),
+            partitioning=data.get(
+                "partitioning", {"strategy": "dirichlet", "alpha": 0.5}
+            ),
+            aggregators=data.get(
+                "aggregators", [data.get("aggregator", {}).get("name", "fedavg")]
+            ),
             metrics=data.get("metrics", ["accuracy", "loss"]),
             seed=data.get("reproducibility", {}).get("seed", data.get("seed", 42)),
         )

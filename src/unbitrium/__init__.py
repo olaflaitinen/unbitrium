@@ -14,62 +14,62 @@ __author__ = "Olaf Yunus Laitinen Imanov"
 __email__ = "oyli@dtu.dk"
 __license__ = "EUPL-1.2"
 
-# Core imports
-from unbitrium.core import (
-    setup_logging,
-    set_seed,
-    set_global_seed,
-    get_provenance_info,
-)
-
 # Aggregators
 from unbitrium.aggregators import (
+    AFL_DCS,
     Aggregator,
+    FedAdam,
     FedAvg,
+    FedCM,
+    FedDyn,
     FedProx,
     FedSim,
-    PFedSim,
-    FedDyn,
-    FedCM,
-    FedAdam,
     Krum,
+    PFedSim,
     TrimmedMean,
-    AFL_DCS,
 )
 
-# Partitioning
-from unbitrium.partitioning import (
-    Partitioner,
-    DirichletPartitioner,
-    MoDMPartitioner,
-    QuantitySkewPartitioner,
-    EntropyControlledPartitioner,
-    FeatureShiftPartitioner,
-)
+# Benchmark
+from unbitrium.bench import BenchmarkConfig, BenchmarkRunner
 
-# Metrics
-from unbitrium.metrics import (
-    compute_gradient_variance,
-    compute_drift_norm,
-    compute_imbalance_ratio,
-    compute_label_entropy,
-    compute_emd,
-    compute_js_divergence,
-    compute_nmi,
-    compute_distribution_metrics,
-    compute_fairness_metrics,
-    compute_privacy_metrics,
+# Core imports
+from unbitrium.core import (
+    get_provenance_info,
+    set_global_seed,
+    set_seed,
+    setup_logging,
 )
 
 # Datasets
 from unbitrium.datasets import (
     DatasetRegistry,
-    register_dataset,
     get_dataset,
+    register_dataset,
 )
 
-# Systems
-from unbitrium.systems import Device, EnergyModel
+# Metrics
+from unbitrium.metrics import (
+    compute_distribution_metrics,
+    compute_drift_norm,
+    compute_emd,
+    compute_fairness_metrics,
+    compute_gradient_variance,
+    compute_imbalance_ratio,
+    compute_js_divergence,
+    compute_label_entropy,
+    compute_nmi,
+    compute_privacy_metrics,
+)
+
+# Partitioning
+from unbitrium.partitioning import (
+    DirichletPartitioner,
+    EntropyControlledPartitioner,
+    FeatureShiftPartitioner,
+    MoDMPartitioner,
+    Partitioner,
+    QuantitySkewPartitioner,
+)
 
 # Privacy
 from unbitrium.privacy import (
@@ -78,8 +78,8 @@ from unbitrium.privacy import (
     clip_gradients,
 )
 
-# Benchmark
-from unbitrium.bench import BenchmarkRunner, BenchmarkConfig
+# Systems
+from unbitrium.systems import Device, EnergyModel
 
 __all__ = [
     # Version info

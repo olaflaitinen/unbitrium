@@ -71,7 +71,7 @@ class DirichletPartitioner(Partitioner):
         labels = np.asarray(labels)
 
         num_classes = len(np.unique(labels))
-        num_samples = len(labels)
+        _num_samples = len(labels)  # noqa: F841
 
         # Get indices per class
         class_indices = [np.where(labels == c)[0] for c in range(num_classes)]

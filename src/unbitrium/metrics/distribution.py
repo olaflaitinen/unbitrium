@@ -61,7 +61,9 @@ def compute_distribution_metrics(
         sorted_dist = np.sort(dist)
         n = len(sorted_dist)
         cumsum = np.cumsum(sorted_dist)
-        gini = (2 * np.sum((np.arange(1, n + 1) * sorted_dist)) / (n * cumsum[-1])) - (n + 1) / n
+        gini = (2 * np.sum((np.arange(1, n + 1) * sorted_dist)) / (n * cumsum[-1])) - (
+            n + 1
+        ) / n
         ginis.append(gini)
     avg_gini = np.mean(ginis) if ginis else 0.0
 

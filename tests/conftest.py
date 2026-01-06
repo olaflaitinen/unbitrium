@@ -22,6 +22,7 @@ def set_seeds() -> None:
 @pytest.fixture
 def simple_model() -> nn.Module:
     """Create a simple model for testing."""
+
     class SimpleModel(nn.Module):
         def __init__(self) -> None:
             super().__init__()
@@ -65,10 +66,15 @@ def global_model_state(simple_model: nn.Module) -> dict[str, torch.Tensor]:
 
 
 @pytest.fixture
-def local_model_states(global_model_state: dict[str, torch.Tensor]) -> list[dict[str, torch.Tensor]]:
+def local_model_states(
+    global_model_state: dict[str, torch.Tensor],
+) -> list[dict[str, torch.Tensor]]:
     """Create variations of model states for gradient testing."""
     return [
-        {k: v.clone() + torch.randn_like(v) * 0.1 for k, v in global_model_state.items()}
+        {
+            k: v.clone() + torch.randn_like(v) * 0.1
+            for k, v in global_model_state.items()
+        }
         for _ in range(5)
     ]
 
