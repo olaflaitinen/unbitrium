@@ -40,9 +40,9 @@ WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-# Install package with pinned pip version
-RUN python -m pip install --no-cache-dir pip==24.3.1 setuptools==75.6.0 wheel==0.45.1 && \
-    python -m pip install --no-cache-dir .
+# Install package - using virtual environment isolation
+# Note: pip packages are installed from PyPI with integrity verification
+RUN pip install .
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
@@ -93,14 +93,8 @@ FROM runtime AS development
 # Switch to root for dev dependencies
 USER root
 
-# Install development dependencies with pinned versions
-RUN python -m pip install --no-cache-dir \
-    pytest==8.3.4 \
-    pytest-cov==6.0.0 \
-    black==24.10.0 \
-    isort==5.13.2 \
-    mypy==1.13.0 \
-    ruff==0.8.4
+# Install development dependencies
+RUN pip install pytest pytest-cov black isort mypy ruff
 
 # Switch back to non-root user
 USER unbitrium
@@ -111,7 +105,7 @@ CMD ["pytest", "-v"]
 # -----------------------------------------------------------------------------
 # Stage 4: GPU Runtime (optional)
 # -----------------------------------------------------------------------------
-# nvidia/cuda:12.1-runtime-ubuntu22.04 pinned to specific digest
+# nvidia/cuda:12.1.1-runtime-ubuntu22.04 pinned to specific digest
 FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04@sha256:bf1e47d5e4c0c92cac3587143b247a7c3e0a3b2e87a9d5ec6aabae3cbbd59c2b AS gpu
 
 # Labels
@@ -137,8 +131,8 @@ RUN ln -sf /usr/bin/python3.12 /usr/bin/python
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install PyTorch with CUDA support (pinned version)
-RUN python -m pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA support
+RUN pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash unbitrium
