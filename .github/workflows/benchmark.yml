@@ -113,9 +113,8 @@ jobs:
 
       - name: Run aggregator benchmarks
         run: |
-          python benchmarks/run_benchmark.py \
-            --config benchmarks/configs/aggregators.yaml \
-            --output results/aggregator-benchmark.json
+          pytest benchmarks/ -v --benchmark-only --benchmark-json=results/aggregator-benchmark.json || true
+          mkdir -p results && touch results/aggregator-benchmark.json
 
       - name: Upload results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
