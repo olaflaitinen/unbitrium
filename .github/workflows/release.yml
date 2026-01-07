@@ -62,7 +62,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(python -c "import unbitrium; print(unbitrium.__version__)")
+          VERSION=$(grep "__version__ =" src/unbitrium/__init__.py | cut -d '"' -f 2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
