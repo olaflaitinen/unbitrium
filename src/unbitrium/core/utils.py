@@ -77,10 +77,10 @@ def get_provenance_info() -> dict[str, Any]:
         Dictionary containing git commit, Python version, library versions,
         hardware info, and environment details.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     info: dict[str, Any] = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "python_version": sys.version,
         "platform": platform.platform(),
         "processor": platform.processor(),

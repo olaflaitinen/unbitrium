@@ -190,7 +190,9 @@ class Device:
         if self.energy_model is None:
             # Simple battery drain simulation
             drain_per_epoch = 0.05
-            self.battery_level = max(0.0, self.battery_level - drain_per_epoch * num_epochs)
+            self.battery_level = max(
+                0.0, self.battery_level - drain_per_epoch * num_epochs
+            )
         else:
             energy = self.energy_model.estimate_training_energy(
                 num_samples=samples_per_epoch * num_epochs
