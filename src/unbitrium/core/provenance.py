@@ -13,7 +13,7 @@ import json
 import os
 import platform
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field
@@ -39,7 +39,9 @@ class ExperimentManifest(BaseModel):
     """
 
     experiment_id: str
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     python_version: str = platform.python_version()
     platform: str = platform.platform()
     hardware_info: Dict[str, str] = Field(default_factory=dict)
