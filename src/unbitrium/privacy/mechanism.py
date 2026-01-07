@@ -30,7 +30,7 @@ class GaussianMechanism:
 
     Example:
         >>> mechanism = GaussianMechanism(epsilon=1.0, delta=1e-5, sensitivity=1.0)
-        >>> noisy_grad = mechanism.apply(gradient)
+        >>> noisy_grad = mechanism.add_noise(gradient)
     """
 
     def __init__(
@@ -50,13 +50,24 @@ class GaussianMechanism:
         self.delta = delta
         self.sensitivity = sensitivity
         self.sigma = self._compute_sigma()
+        self._spent_budget = 0.0
 
     def _compute_sigma(self) -> float:
         """Compute noise scale for (epsilon, delta)-DP."""
-        return self.sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
+        return float(
+            self.sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
+        )
 
-    def apply(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Apply Gaussian noise to tensor.
+    def compute_noise_std(self) -> float:
+        """Return the noise standard deviation.
+
+        Returns:
+            Noise standard deviation (sigma).
+        """
+        return self.sigma
+
+    def add_noise(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Add Gaussian noise to tensor.
 
         Args:
             tensor: Input tensor.
@@ -65,7 +76,27 @@ class GaussianMechanism:
             Noisy tensor.
         """
         noise = torch.randn_like(tensor) * self.sigma
+        self._spent_budget += self.epsilon
         return tensor + noise
+
+    def apply(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Apply Gaussian noise to tensor. Alias for add_noise.
+
+        Args:
+            tensor: Input tensor.
+
+        Returns:
+            Noisy tensor.
+        """
+        return self.add_noise(tensor)
+
+    def get_spent_budget(self) -> float:
+        """Get total spent privacy budget.
+
+        Returns:
+            Total epsilon spent so far.
+        """
+        return self._spent_budget
 
     def apply_to_state_dict(
         self,
@@ -80,7 +111,7 @@ class GaussianMechanism:
             Noised state dictionary.
         """
         return {
-            k: self.apply(v) if isinstance(v, torch.Tensor) else v
+            k: self.add_noise(v) if isinstance(v, torch.Tensor) else v
             for k, v in state_dict.items()
         }
 
@@ -96,7 +127,7 @@ class LaplaceMechanism:
 
     Example:
         >>> mechanism = LaplaceMechanism(epsilon=1.0, sensitivity=1.0)
-        >>> noisy_value = mechanism.apply(value)
+        >>> noisy_value = mechanism.add_noise(value)
     """
 
     def __init__(self, epsilon: float, sensitivity: float = 1.0) -> None:
@@ -110,8 +141,8 @@ class LaplaceMechanism:
         self.sensitivity = sensitivity
         self.scale = sensitivity / epsilon
 
-    def apply(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Apply Laplace noise to tensor.
+    def add_noise(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Add Laplace noise to tensor.
 
         Args:
             tensor: Input tensor.
@@ -123,6 +154,17 @@ class LaplaceMechanism:
         uniform = torch.rand_like(tensor) - 0.5
         noise = -self.scale * torch.sign(uniform) * torch.log1p(-2 * torch.abs(uniform))
         return tensor + noise
+
+    def apply(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Apply Laplace noise to tensor. Alias for add_noise.
+
+        Args:
+            tensor: Input tensor.
+
+        Returns:
+            Noisy tensor.
+        """
+        return self.add_noise(tensor)
 
 
 def clip_gradients(
