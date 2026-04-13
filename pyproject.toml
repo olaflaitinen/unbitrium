@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -37,7 +37,7 @@ dependencies = [
     "jinja2>=3.1.5",
     "certifi>=2024.12.14",
     "urllib3>=2.3.0",
-    "setuptools>=75.6.0",
+    "setuptools>=82.0.1",
     "pydantic>=2.0.0",
     "torchvision>=0.18.0",
     "scikit-learn>=1.4.0",
